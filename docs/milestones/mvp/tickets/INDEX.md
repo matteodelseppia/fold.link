@@ -12,7 +12,7 @@ can start immediately (subject to its own phase being reachable).
 ## Index
 
 | # | Ticket | Phase | Predecessors | Status |
-|---|--------|-------|---------------|--------|
+| --- | -------- | ------- | --------------- | -------- |
 | 1 | [MVP-001](tickets/MVP-001-record-mvp-technical-decisions.md) | Foundational Decisions | none | Closed |
 | 3 | [MVP-003](tickets/MVP-003-create-ticket-execution-index.md) | Repository Governance & Hygiene | [MVP-001](tickets/MVP-001-record-mvp-technical-decisions.md) | Open |
 | 4 | [MVP-004](tickets/MVP-004-define-done-and-evidence-rules.md) | Repository Governance & Hygiene | [MVP-003](tickets/MVP-003-create-ticket-execution-index.md) | Open |

@@ -85,10 +85,12 @@ The policy can be verified two ways:
    push with a Developer-scoped token), running
    `git push origin HEAD:main` against a local commit is rejected by
    GitLab with an error such as:
-   ```
+
+   ```text
    remote: GitLab: You are not allowed to push code to protected branches on this project.
    ! [remote rejected] HEAD -> main (pre-receive hook declined)
    ```
+
    Even a Maintainer cannot bypass this — the push access level is set to
    `No one`, so the only way to change `main` is via a merge request that
    also satisfies the "pipeline must succeed" requirement.
@@ -99,7 +101,7 @@ The following were configured via the GitLab API on the `fold.link`
 project (id `84607112`) as part of this ticket:
 
 | Setting | Before | After |
-|---|---|---|
+| --- | --- | --- |
 | `only_allow_merge_if_pipeline_succeeds` | `false` | `true` |
 | `remove_source_branch_after_merge` | `true` | `true` (unchanged) |
 | `squash_option` | `default_off` | `always` |

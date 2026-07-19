@@ -1,9 +1,25 @@
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+default:
+  interruptible: true
+
 stages:
-  - lint
+  - validate
+  - test
   - sync_work_items
 
+markdown_lint:
+  stage: validate
+  image: node:22.14.0-slim
+  script:
+    - npm ci
+    - npm run lint:md
+
 check_ticket_index:
-  stage: lint
+  stage: validate
   image: python:3.11-slim
   rules:
     - changes:
@@ -11,20 +27,34 @@ check_ticket_index:
   script:
     - python3 scripts/check_ticket_index_links.py
 
+formatting_check:
+  stage: validate
+  image: eclipse-temurin:21.0.8_9-jdk-jammy
+  script:
+    - ./gradlew spotlessCheck --console=plain --no-daemon
+
+unit_test:
+  stage: test
+  image: eclipse-temurin:21.0.8_9-jdk-jammy
+  script:
+    - ./gradlew test --console=plain --no-daemon
+
 import_work_items:
   stage: sync_work_items
   image: python:3.11-slim
+  interruptible: false
   # This rule ensures the job runs when markdown files are modified or added
   rules:
-    - changes:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      changes:
         - "docs/milestones/mvp/tickets/*.md" # <-- Update this path to match your folder
   before_script:
     - pip install python-gitlab
   script:
     - echo "Syncing work items to GitLab..."
     - >
-      python scripts/import_gitlab_issues.py 
-      --folder "docs/milestones/mvp/tickets" 
-      --project "$CI_PROJECT_ID" 
-      --url "$CI_SERVER_URL" 
+      python scripts/import_gitlab_issues.py
+      --folder "docs/milestones/mvp/tickets"
+      --project "$CI_PROJECT_ID"
+      --url "$CI_SERVER_URL"
       --token "$GITLAB_API_TOKEN"
