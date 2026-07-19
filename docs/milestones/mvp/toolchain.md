@@ -16,7 +16,7 @@ repository root.
 curl https://mise.run | sh
 ```
 
-See https://mise.jdx.dev/getting-started.html for platform-specific options
+See <https://mise.jdx.dev/getting-started.html> for platform-specific options
 (Homebrew, apt, etc.).
 
 ### Resolve the pinned toolchain
@@ -33,13 +33,13 @@ installation command that failed so it can be run directly.
 
 ## Pinned versions
 
-| Tool          | Version         | Managed by                        |
-|---------------|-----------------|------------------------------------|
-| Java          | 25 (Temurin)    | mise (`.mise.toml`)                |
-| Node.js       | 22.14.0         | mise (`.mise.toml`)                |
-| Gradle        | owned by wrapper (MVP-011) | Gradle wrapper (`gradlew`) |
-| k6            | v0.54.0         | manual install (not mise-managed)  |
-| Infisical CLI | v0.41.89        | manual install (not mise-managed)  |
+| Tool          | Version                    | Managed by                        |
+|---------------|----------------------------|-----------------------------------|
+| Java          | 25 (Temurin)               | mise (`.mise.toml`)               |
+| Node.js       | 22.14.0                    | mise (`.mise.toml`)               |
+| Gradle        | owned by wrapper (MVP-011) | Gradle wrapper (`gradlew`)        |
+| k6            | v0.54.0                    | manual install (not mise-managed) |
+| Infisical CLI | v0.41.89                   | manual install (not mise-managed) |
 
 ### Java
 

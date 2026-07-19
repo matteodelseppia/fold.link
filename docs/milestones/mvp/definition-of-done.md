@@ -1,12 +1,14 @@
 # fold.link - MVP - Definition of Done
 
 ## Purpose
+
 Every ticket in `docs/milestones/mvp/tickets/` is small by design. This document
 defines the single checklist a ticket must satisfy before it is considered done,
 so completion is judged the same way regardless of who does the work or which
 ticket it is.
 
 ## Definition of done checklist
+
 A ticket is done only when **all** of the following are true:
 
 1. **Code review** - the change was submitted as a GitLab merge request, targets
@@ -40,7 +42,9 @@ A ticket is done only when **all** of the following are true:
    output, or a console note) confirming it holds.
 
 ## The ticket stays open if any check fails, is skipped, or is undocumented
+
 A ticket must **not** be marked done while any of the following is true:
+
 - An acceptance criterion was not verified.
 - A check (test, lint, pipeline job) was run and failed.
 - A check was skipped (including "skipped for now" or commented out) without
@@ -56,7 +60,9 @@ own criteria.
 ## Worked examples
 
 ### Example 1: pure-repository ticket - MVP-007 (add repository ignore rules)
+
 Checklist applied:
+
 1. **Code review**: MR opened against `main`, diff limited to `.gitignore` (and
    this ticket's own status update).
 2. **Automated test for changed behavior**: `.gitignore` has no runtime
@@ -79,7 +85,9 @@ No step here is left undocumented: the whole check is a local git command
 whose output goes straight into the MR.
 
 ### Example 2: hosted-service ticket - MVP-039 (create Railway project environments)
+
 Checklist applied:
+
 1. **Code review**: MR opened against `main` containing only this ticket's
    documentation update (e.g. recording the project/environment names and
    IDs), since the Railway resources themselves are created in the Railway
@@ -109,6 +117,7 @@ happened outside the repository: the console/CLI evidence and identifiers are
 what get committed, never the secret credentials used to obtain them.
 
 ## Relationship to other MVP tickets
+
 - MVP-005 defines the branch/merge mechanics (protected `main`, squash merge,
   who may promote production) that this checklist's "code review" step relies
   on.
