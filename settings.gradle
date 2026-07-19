@@ -1,0 +1,10 @@
+// NOTE: the settings script's own plugins {} block runs before the project's
+// gradle/libs.versions.toml catalog is available, so this one plugin version
+// cannot be sourced from the catalog like the rest of the build. It is pinned
+// here directly; all other plugin/dependency versions live in
+// gradle/libs.versions.toml.
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'foldlink'
