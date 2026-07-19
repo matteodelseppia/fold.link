@@ -57,6 +57,13 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
+// Spring Boot's plugin also wires up a plain (non-executable) `jar` task by
+// default, which would leave two jars under build/libs/. Disabling it means
+// `bootJar` is the only jar produced, keeping the build artifact singular.
+tasks.named('jar') {
+    enabled = false
+}
+
 // `spotlessCheck` runs as part of `check` (wired in automatically by the
 // plugin) and never mutates files; `spotlessApply` is the separate,
 // explicitly-invoked task that rewrites files in place. Targets are scoped

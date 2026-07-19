@@ -18,6 +18,7 @@ variables:
 stages:
   - validate
   - test
+  - build
   - sync_work_items
 
 .gradle_cache: &gradle_cache
@@ -73,6 +74,21 @@ unit_test:
     paths:
       - build/test-results/test/
       - build/reports/tests/test/
+
+build_jar:
+  stage: build
+  image: eclipse-temurin:21.0.8_9-jdk-jammy
+  <<: *gradle_cache
+  # Stage ordering already gates this on validate/test succeeding first —
+  # GitLab does not start a later stage's jobs if an earlier stage failed.
+  script:
+    - ./gradlew bootJar --console=plain --no-daemon
+  artifacts:
+    expire_in: "30 days"
+    paths:
+      # bootJar is the only jar task enabled (build.gradle disables the
+      # plain `jar` task), so exactly one runnable JAR is ever produced here.
+      - build/libs/*.jar
 
 import_work_items:
   stage: sync_work_items
