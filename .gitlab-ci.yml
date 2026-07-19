@@ -64,6 +64,13 @@ unit_test:
   stage: test
   image: eclipse-temurin:21.0.8_9-jdk-jammy
   <<: *gradle_cache
+  # A real Redis so the health-endpoint "readiness/liveness are UP" tests
+  # run for real in CI (the "readiness is DOWN without Redis" tests don't
+  # need this — they point at an address nothing listens on). Reachable at
+  # localhost:6379, same as application-test.yml's default.
+  services:
+    - name: redis:7.4.2-alpine
+      alias: redis
   script:
     - ./gradlew test --console=plain --no-daemon
   artifacts:
