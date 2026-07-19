@@ -7,14 +7,14 @@ import_work_items:
   # This rule ensures the job runs when markdown files are modified or added
   rules:
     - changes:
-        - "docs/milestones/mvp/*.md" # <-- Update this path to match your folder
+        - "docs/milestones/mvp/tickets/*.md" # <-- Update this path to match your folder
   before_script:
     - pip install python-gitlab
   script:
     - echo "Syncing work items to GitLab..."
     - >
       python scripts/import_gitlab_issues.py 
-      --folder "docs/milestones/mvp" 
+      --folder "docs/milestones/mvp/tickets" 
       --project "$CI_PROJECT_ID" 
       --url "$CI_SERVER_URL" 
       --token "$GITLAB_API_TOKEN"
