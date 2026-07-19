@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 @ConfigurationPropertiesScan
 public class FoldLinkApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(FoldLinkApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(FoldLinkApplication.class, args);
+  }
 }
