@@ -1,0 +1,26 @@
+# Local development Redis service. Not used for CI, staging, or production
+# (see docs/milestones/mvp/tickets/MVP-016-add-local-redis-compose-service.md).
+#
+# Documented local port: 127.0.0.1:6379. The port is bound to the loopback
+# interface only, so the service is not reachable from other hosts on the
+# network even though the container's own 6379 is otherwise open.
+services:
+  redis:
+    image: redis:7.4.2-alpine
+    container_name: foldlink-redis-local
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - foldlink-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  foldlink-redis-data:
+    name: foldlink-redis-data
