@@ -1,5 +1,15 @@
 stages:
+  - lint
   - sync_work_items
+
+check_ticket_index:
+  stage: lint
+  image: python:3.11-slim
+  rules:
+    - changes:
+        - "docs/milestones/mvp/tickets/*.md"
+  script:
+    - python3 scripts/check_ticket_index_links.py
 
 import_work_items:
   stage: sync_work_items
