@@ -1,0 +1,43 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/**/build/
+
+# Java
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE metadata
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# Node (system test runner)
+node_modules/
+npm-debug.log*
+coverage/
+.nyc_output/
+
+# k6 load test output
+*.k6-results.json
+k6-results/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Local environment files (keep the safe example trackable)
+.env
+.env.*
+!.env.example
+
+# Infisical local artifacts
+.infisical.json
+.infisical/
