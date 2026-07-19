@@ -1,0 +1,32 @@
+# Test profile. Lives under src/test/resources so it is never packaged into
+# the application artifact — it cannot be activated outside the test
+# classpath, and can therefore never accidentally point a running
+# staging/production instance at these fixture values.
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ""
+      ssl:
+        enabled: false
+
+server:
+  port: 0
+
+app:
+  base-url: http://localhost:8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    root: WARN
+    link.fold: DEBUG
