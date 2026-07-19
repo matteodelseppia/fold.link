@@ -1,0 +1,12 @@
+{
+  "name": "fold.link",
+  "private": true,
+  "version": "1.0.0",
+  "description": "fold.link repository tooling",
+  "scripts": {
+    "lint:md": "markdownlint-cli2 \"**/*.md\""
+  },
+  "devDependencies": {
+    "markdownlint-cli2": "0.23.1"
+  }
+}

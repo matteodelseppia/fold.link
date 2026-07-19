@@ -1,0 +1,30 @@
+// markdownlint-cli2 configuration for fold.link documentation.
+//
+// Rationale for the rule tuning below:
+// - MD013 (line-length) is disabled globally. The milestone docs contain
+//   wide Markdown tables (e.g. docs/milestones/mvp/tickets/INDEX.md, whose
+//   ticket table has long rows that cannot be reasonably wrapped without
+//   breaking the table syntax) and Mermaid diagrams with long single-line
+//   node/edge definitions. Wrapping either would hurt readability or break
+//   rendering, so line-length is intentionally not enforced.
+// - MD040 (fenced-code-language) is left enabled (default). All Mermaid
+//   fences in this repo are tagged with ```mermaid, which satisfies this
+//   rule; markdownlint does not lint the *contents* of fenced code blocks,
+//   so Mermaid syntax inside the fences is never evaluated as Markdown.
+// - MD033 (no-inline-html) is disabled because Mermaid node labels use
+//   inline HTML (e.g. `<br/>`) inside fenced code blocks. This is
+//   technically unnecessary (fence contents aren't linted), but is set to
+//   avoid surprises if diagram snippets are ever quoted inline in prose.
+{
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD033": false
+  },
+  "globs": [
+    "**/*.md"
+  ],
+  "ignores": [
+    "node_modules/**"
+  ]
+}
