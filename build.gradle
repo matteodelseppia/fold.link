@@ -2,6 +2,7 @@ plugins {
     id 'java'
     alias(libs.plugins.springBoot)
     alias(libs.plugins.springDependencyManagement)
+    alias(libs.plugins.spotless)
 }
 
 group = 'link.fold'
@@ -28,4 +29,24 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+// `spotlessCheck` runs as part of `check` (wired in automatically by the
+// plugin) and never mutates files; `spotlessApply` is the separate,
+// explicitly-invoked task that rewrites files in place. Targets are scoped
+// to src/**, so build/ and other generated directories are never touched.
+spotless {
+    java {
+        target 'src/**/*.java'
+        googleJavaFormat(libs.versions.googleJavaFormat.get())
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+    groovyGradle {
+        target '*.gradle'
+        trimTrailingWhitespace()
+        leadingTabsToSpaces(4)
+        endWithNewline()
+    }
 }
