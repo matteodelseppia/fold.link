@@ -1,0 +1,13 @@
+[tools]
+java = "temurin-25"
+node = "22.14.0"
+
+
+# Gradle's version is intentionally NOT pinned here: the Gradle wrapper
+# (introduced in MVP-011) owns and pins the Gradle version for this
+# repository via gradle/wrapper/gradle-wrapper.properties.
+#
+# k6 and the Infisical CLI are not mise/asdf-managed in this repository
+# (no reliable core plugin for either at the time of writing). Their
+# pinned versions and install commands are documented in
+# docs/milestones/mvp/toolchain.md.
