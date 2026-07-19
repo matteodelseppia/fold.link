@@ -1,4 +1,4 @@
-# fold.link - Architecture and Test Plan
+# fold.link - Design
 
 ## 1. Architectural Overview
 
