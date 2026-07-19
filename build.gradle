@@ -18,6 +18,32 @@ repositories {
     mavenCentral()
 }
 
+// Lock every resolvable configuration so local, CI, and container builds
+// resolve identical transitive versions. Refresh locks with:
+//   ./gradlew dependencies --write-locks
+//
+// Gradle refuses to combine dependency locking with
+// resolutionStrategy.failOnDynamicVersions()/failOnChangingVersions()
+// directly (locking already makes dynamic versions unresolvable — a locked
+// configuration only ever resolves to the exact locked version). A
+// componentSelection rule adds an explicit, locking-compatible rejection of
+// SNAPSHOT/dynamic version strings as defense in depth for future additions.
+configurations.all {
+    resolutionStrategy.componentSelection.all { selection ->
+        def rejectedVersion = selection.candidate.version ==~ /(?i).*-SNAPSHOT$/ ||
+                selection.candidate.version ==~ /.*[+\[\](),].*/ ||
+                selection.candidate.version == 'latest.release' ||
+                selection.candidate.version == 'latest.integration'
+        if (rejectedVersion) {
+            selection.reject("Dynamic and snapshot versions are not allowed: ${selection.candidate}")
+        }
+    }
+}
+
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
