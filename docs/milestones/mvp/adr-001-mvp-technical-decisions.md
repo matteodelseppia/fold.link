@@ -5,7 +5,7 @@
 ## Contracts
 
 | Decision | Value |
-|---|---|
+| --- | --- |
 | Create endpoint | `POST /api/v1/links` |
 | Redirect endpoint | `GET /{alias}` (unversioned — it is the public short URL) |
 | Redirect status | `302 Found` (prevents browser/CDN caching) |
@@ -20,7 +20,7 @@
 **`POST /api/v1/links`** — body: `{ "url": "<destination>" }`
 
 | Outcome | Status | Body fields |
-|---|---|---|
+| --- | --- | --- |
 | Created | 201 | `alias`, `shortUrl`, `destination` |
 | Invalid URL | 400 | `error: "VALIDATION_ERROR"`, `message` |
 | Alias not found (`GET`) | 404 | `error: "ALIAS_NOT_FOUND"`, `message` |
