@@ -1,15 +1,40 @@
 workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      variables:
+        GRADLE_CACHE_POLICY: pull
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      variables:
+        GRADLE_CACHE_POLICY: pull-push
 
 default:
   interruptible: true
+
+variables:
+  # Project-local Gradle home, so the dependency/wrapper cache lives inside
+  # CI_PROJECT_DIR and nothing outside the checkout is cached.
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle-user-home"
 
 stages:
   - validate
   - test
   - sync_work_items
+
+.gradle_cache: &gradle_cache
+  cache:
+    key:
+      files:
+        - gradle.lockfile
+        - gradle/wrapper/gradle-wrapper.properties
+    paths:
+      # Downloaded dependency jars and the Gradle distribution only — never
+      # build/ (build outputs) or anything that could hold credentials.
+      - .gradle-user-home/caches/modules-2
+      - .gradle-user-home/wrapper/dists
+    # MR pipelines (untrusted/feature branches) only ever read the cache;
+    # only the protected main branch (see workflow: rules above) can write
+    # to it, so an untrusted branch can never poison what main reads.
+    policy: $GRADLE_CACHE_POLICY
 
 markdown_lint:
   stage: validate
@@ -30,12 +55,14 @@ check_ticket_index:
 formatting_check:
   stage: validate
   image: eclipse-temurin:21.0.8_9-jdk-jammy
+  <<: *gradle_cache
   script:
     - ./gradlew spotlessCheck --console=plain --no-daemon
 
 unit_test:
   stage: test
   image: eclipse-temurin:21.0.8_9-jdk-jammy
+  <<: *gradle_cache
   script:
     - ./gradlew test --console=plain --no-daemon
 
