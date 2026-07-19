@@ -14,6 +14,11 @@ server:
 
 app:
   base-url: ${APP_BASE_URL}
+  alias:
+    length: ${APP_ALIAS_LENGTH:8}
+    retry-count: ${APP_ALIAS_RETRY_COUNT:5}
+  redis:
+    key-prefix: "${APP_REDIS_KEY_PREFIX:v1:link:}"
 
 management:
   endpoints:
