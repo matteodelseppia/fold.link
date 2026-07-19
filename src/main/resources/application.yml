@@ -24,10 +24,25 @@ management:
   endpoints:
     web:
       exposure:
-        include: ${ACTUATOR_EXPOSED_ENDPOINTS:health}
+        # Only the health endpoint (and its liveness/readiness sub-paths) is
+        # ever web-exposed — no env, beans, metrics, etc.
+        include: health
   endpoint:
     health:
       show-details: ${ACTUATOR_HEALTH_SHOW_DETAILS:never}
+      probes:
+        enabled: true
+      group:
+        # Liveness never depends on Redis: it only reflects whether the JVM
+        # process itself is still running, so a Redis outage must not make
+        # the container/Railway kill and restart a perfectly healthy app.
+        liveness:
+          include: livenessState
+        # Readiness includes Redis: the app can't actually serve traffic
+        # (create/redirect) without it, so probes should stop routing to
+        # this instance while Redis is unreachable.
+        readiness:
+          include: readinessState,redis
 
 logging:
   level:

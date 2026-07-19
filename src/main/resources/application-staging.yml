@@ -4,10 +4,6 @@
 # how those are supplied via Infisical). Missing values fail startup instead
 # of silently falling back to a default.
 management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
   endpoint:
     health:
       show-details: when-authorized
