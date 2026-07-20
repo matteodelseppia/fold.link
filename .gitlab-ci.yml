@@ -19,6 +19,7 @@ stages:
   - validate
   - test
   - build
+  - smoke_test
   - sync_work_items
 
 .gradle_cache: &gradle_cache
@@ -96,6 +97,40 @@ build_jar:
       # bootJar is the only jar task enabled (build.gradle disables the
       # plain `jar` task), so exactly one runnable JAR is ever produced here.
       - build/libs/*.jar
+
+container_smoke_test:
+  stage: smoke_test
+  # This stage runs after `build` (see `stages:` above), so a failed
+  # unit_test/build_jar already stops the pipeline before this job starts.
+  # No registry-publish job exists yet in this pipeline (added by later
+  # MVP tickets); once one is, its `needs`/stage ordering must keep it
+  # after this job so a broken image can never reach it.
+  image: docker:27.5.1-cli
+  services:
+    - docker:27.5.1-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    # Read by scripts/container-smoke-test.sh: on failure it writes the
+    # app/Redis container logs here so they survive as a job artifact,
+    # not just the (expiring) job console log.
+    LOG_DIR: "$CI_PROJECT_DIR/container-smoke-logs"
+  before_script:
+    # Only bash is needed on the job's own shell — the HTTP checks run
+    # inside a curl container on the isolated Docker network instead (see
+    # scripts/container-smoke-test.sh), which also works identically here
+    # under docker-in-docker.
+    - apk add --no-cache bash
+  script:
+    # Builds the exact image candidate produced by this pipeline's commit
+    # (same Dockerfile + source the build/test stages just validated).
+    - docker build -t "foldlink-app:${CI_COMMIT_SHORT_SHA}" .
+    - ./scripts/container-smoke-test.sh "foldlink-app:${CI_COMMIT_SHORT_SHA}"
+  artifacts:
+    when: on_failure
+    expire_in: "7 days"
+    paths:
+      - container-smoke-logs/
 
 import_work_items:
   stage: sync_work_items

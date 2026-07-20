@@ -8,16 +8,28 @@
 # failure — without ever touching a developer's persistent Redis volume
 # (docker-compose.yml's `foldlink-redis-data` is never referenced here).
 #
+# The readiness/HTTP checks run from a small curl container attached to the
+# same isolated network (rather than publishing a host port and curling
+# 127.0.0.1) so this works identically on a developer machine and inside a
+# GitLab docker-in-docker CI job, where the daemon and its containers don't
+# share the job's own network namespace.
+#
 # Usage:
 #   scripts/container-smoke-test.sh <image-ref>
 #
 # Environment:
-#   REDIS_IMAGE       Redis image to start (default: redis:7.4.2-alpine,
-#                      same as docker-compose.yml / CI's unit_test service).
-#   EXTRA_DOCKER_ARGS  Extra `docker run` flags inserted before the image
-#                      name, e.g. `--entrypoint=/bin/false` to deliberately
-#                      make the container fail (used for testing this
-#                      script itself).
+#   REDIS_IMAGE        Redis image to start (default: redis:7.4.2-alpine,
+#                       same as docker-compose.yml / CI's unit_test service).
+#   CURL_IMAGE          Image used to run the in-network HTTP checks
+#                        (default: curlimages/curl:8.15.0).
+#   EXTRA_DOCKER_ARGS   Extra `docker run` flags inserted before the image
+#                       name, e.g. `--entrypoint=/bin/false` to deliberately
+#                       make the container fail (used for testing this
+#                       script itself).
+#   LOG_DIR             If set, on failure the app/Redis container logs are
+#                        additionally written to $LOG_DIR/app.log and
+#                        $LOG_DIR/redis.log (in addition to stderr), so a
+#                        caller (e.g. CI) can retain them as job artifacts.
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
@@ -26,6 +38,7 @@ if [ "$#" -ne 1 ]; then
 fi
 IMAGE="$1"
 REDIS_IMAGE="${REDIS_IMAGE:-redis:7.4.2-alpine}"
+CURL_IMAGE="${CURL_IMAGE:-curlimages/curl:8.15.0}"
 EXTRA_ARGS=()
 if [ -n "${EXTRA_DOCKER_ARGS:-}" ]; then
   read -ra EXTRA_ARGS <<<"$EXTRA_DOCKER_ARGS"
@@ -33,13 +46,12 @@ fi
 
 # Collision-safe: unique per invocation so concurrent CI jobs (or a CI run
 # alongside a developer's local `docker compose up`) never clash on
-# container, network, or port.
+# container or network names.
 RUN_ID="smoke-$$-$(date +%s)"
 NETWORK="foldlink-${RUN_ID}-net"
 REDIS_NAME="foldlink-${RUN_ID}-redis"
 APP_NAME="foldlink-${RUN_ID}-app"
 APP_PORT=8080
-HOST_PORT="$((20000 + (RANDOM % 20000)))"
 
 READY_RETRIES=30
 READY_INTERVAL=2
@@ -52,6 +64,11 @@ cleanup() {
     docker logs "$APP_NAME" >&2 2>&1 || true
     echo "--- ${REDIS_NAME} logs ---" >&2
     docker logs "$REDIS_NAME" >&2 2>&1 || true
+    if [ -n "${LOG_DIR:-}" ]; then
+      mkdir -p "$LOG_DIR"
+      docker logs "$APP_NAME" >"$LOG_DIR/app.log" 2>&1 || true
+      docker logs "$REDIS_NAME" >"$LOG_DIR/redis.log" 2>&1 || true
+    fi
   fi
   echo "Cleaning up smoke-test resources (run ${RUN_ID})..."
   # Only ever removes the ephemeral, uniquely-named resources created by
@@ -62,6 +79,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
+curl_in_network() {
+  docker run --rm --network "$NETWORK" "$CURL_IMAGE" "$@"
+}
+
 docker network create "$NETWORK" >/dev/null
 docker run -d --name "$REDIS_NAME" --network "$NETWORK" "$REDIS_IMAGE" >/dev/null
 
@@ -69,7 +90,6 @@ docker run -d --name "$APP_NAME" --network "$NETWORK" \
   -e REDIS_HOST="$REDIS_NAME" \
   -e REDIS_PORT=6379 \
   -e APP_BASE_URL="http://localhost:${APP_PORT}" \
-  -p "${HOST_PORT}:${APP_PORT}" \
   "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}" \
   "$IMAGE" >/dev/null
 
@@ -81,7 +101,7 @@ for attempt in $(seq 1 "$READY_RETRIES"); do
     echo "ERROR: ${APP_NAME} is not running (status: ${status}) on attempt ${attempt}." >&2
     exit 1
   fi
-  if curl -sf -o /dev/null "http://127.0.0.1:${HOST_PORT}/actuator/health/readiness"; then
+  if curl_in_network -sf -o /dev/null "http://${APP_NAME}:${APP_PORT}/actuator/health/readiness"; then
     ready=true
     break
   fi
@@ -94,7 +114,7 @@ if [ "$ready" != true ]; then
 fi
 
 echo "Checking GET /actuator/health/readiness..."
-response="$(curl -sf "http://127.0.0.1:${HOST_PORT}/actuator/health/readiness")"
+response="$(curl_in_network -sf "http://${APP_NAME}:${APP_PORT}/actuator/health/readiness")"
 echo "$response"
 if ! echo "$response" | grep -q '"status":"UP"'; then
   echo "ERROR: readiness endpoint did not report status UP." >&2
