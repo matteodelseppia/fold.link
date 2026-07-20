@@ -207,7 +207,7 @@ deploy_staging:
   needs:
     - job: build_and_publish
       artifacts: true
-  image: alpine:3.21
+  image: node:22.14.0-alpine
   variables:
     RAILWAY_CLI_VERSION: "5.27.0"
     RAILWAY_ENV_SLUG: staging
