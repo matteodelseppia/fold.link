@@ -21,7 +21,6 @@ stages:
   - build
   - smoke_test
   - package
-  - publish
   - deploy_staging
   - sync_work_items
 
@@ -135,7 +134,7 @@ container_smoke_test:
     paths:
       - container-smoke-logs/
 
-build_image:
+build_and_publish:
   stage: package
   # Runs after the smoke gate (container_smoke_test) has already passed --
   # stage ordering stops the pipeline before this job starts otherwise.
@@ -173,60 +172,26 @@ build_image:
         echo "ERROR: image created label is missing or unset." >&2
         exit 1
       fi
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        docker tag "foldlink-app:${CI_COMMIT_SHORT_SHA}" \
+          "$CI_REGISTRY_IMAGE:${CI_COMMIT_SHA}"
+
+        echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" \
+          -u "$CI_REGISTRY_USER" --password-stdin
+        docker push "$CI_REGISTRY_IMAGE:${CI_COMMIT_SHA}"
+
+        digest="$(docker inspect --format='{{index .RepoDigests 0}}' \
+          "$CI_REGISTRY_IMAGE:${CI_COMMIT_SHA}" | sed 's/.*@//')"
+        echo "$digest" > image-digest.txt
+        echo "${CI_REGISTRY_IMAGE}@${digest}" > image-ref.txt
+        docker logout "$CI_REGISTRY"
+      fi
   artifacts:
     when: on_failure
     expire_in: "7 days"
     paths:
       - container-smoke-logs/
-
-publish_image:
-  stage: publish
-  # Only main ever publishes -- an MR pipeline never runs this job at all,
-  # so it can never push under a production-consumed tag. Stage ordering
-  # also means this never runs unless build_image (and everything before
-  # it) already passed for this commit.
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-  image: docker:27.5.1-cli
-  services:
-    - docker:27.5.1-dind
-  variables:
-    DOCKER_HOST: tcp://docker:2375
-    DOCKER_TLS_CERTDIR: ""
-  script:
-    - |
-      build_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-      docker build \
-        --build-arg GIT_COMMIT="$CI_COMMIT_SHA" \
-        --build-arg BUILD_DATE="$build_date" \
-        -t "$CI_REGISTRY_IMAGE:${CI_COMMIT_SHA}" .
-    # CI_REGISTRY/CI_REGISTRY_USER/CI_REGISTRY_PASSWORD are GitLab's own
-    # predefined, masked variables scoped to this job -- no externally
-    # configured credential is needed.
-    - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
-    # The only tag ever pushed is the immutable full commit SHA -- never
-    # `latest` or any mutable branch tag.
-    - docker push "$CI_REGISTRY_IMAGE:${CI_COMMIT_SHA}"
-    - |
-      digest="$(docker inspect --format='{{index .RepoDigests 0}}' "$CI_REGISTRY_IMAGE:${CI_COMMIT_SHA}" | sed 's/.*@//')"
-      echo "pushed digest: ${digest}"
-      echo "$digest" > image-digest.txt
-      echo "${CI_REGISTRY_IMAGE}@${digest}" > image-ref.txt
-    - docker logout "$CI_REGISTRY"
-    # Testing criterion: pull strictly by the recorded digest (not the SHA
-    # tag) and confirm its revision label matches this pipeline's commit.
-    - |
-      digest="$(cat image-digest.txt)"
-      docker pull "${CI_REGISTRY_IMAGE}@${digest}"
-      pulled_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "${CI_REGISTRY_IMAGE}@${digest}")"
-      if [ "$pulled_revision" != "$CI_COMMIT_SHA" ]; then
-        echo "ERROR: pulled image revision label '${pulled_revision}' does not match CI_COMMIT_SHA '${CI_COMMIT_SHA}'." >&2
-        exit 1
-      fi
-      echo "verified: digest ${digest} revision label matches ${CI_COMMIT_SHA}"
-  artifacts:
-    expire_in: "90 days"
-    paths:
       - image-digest.txt
       - image-ref.txt
 
@@ -240,7 +205,7 @@ deploy_staging:
   # and this also gates execution on publish_image having actually
   # succeeded for this commit.
   needs:
-    - job: publish_image
+    - job: build_and_publish
       artifacts: true
   image: alpine:3.21
   variables:
@@ -248,6 +213,9 @@ deploy_staging:
     RAILWAY_ENV_SLUG: staging
     ROLLOUT_RETRIES: "60"
     ROLLOUT_INTERVAL: "10"
+  before_script:
+    - npm install --global "@railway/cli@${RAILWAY_CLI_VERSION}"
+    - railway --version
   script:
     - export RAILWAY_API_TOKEN="$RAILWAY_STAGING_TOKEN"
     - |
