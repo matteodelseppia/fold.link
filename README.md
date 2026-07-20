@@ -1,8 +1,6 @@
 # fold.link
 
-A minimal, fast URL shortener. No accounts, no tracking — paste a long URL,
-get a short one back, and every visit to that short link is redirected to the
-original destination.
+A minimal URL shortener.
 
 ![The fold.link web UI: a card with a "Destination URL" field, a "Shorten"
 button, and the resulting short link with a copy-to-clipboard
@@ -11,16 +9,12 @@ button.](docs/assets/screenshot.png)
 ## What it can do
 
 - **Shorten a URL** — submit any `http`/`https` URL and receive a short link
-  backed by an 8-character, unguessable, `SecureRandom`-generated alias.
+  backed by an 8-character, `SecureRandom`-generated alias.
 - **Redirect** — visiting `https://<host>/{alias}` issues a `302 Found` to the
   original destination (302, not 301, so browsers and CDNs don't cache the
   mapping).
 - **Reject bad input** — malformed URLs and non-`http(s)` schemes are refused
   with a clear `400 VALIDATION_ERROR`; unknown aliases return `404`.
-- **Stay up under read-heavy load** — the system is designed and load-tested for
-  a workload where redirects vastly outnumber creations.
-- **Survive restarts** — mappings are persisted, so short links keep working
-  across restarts and redeploys.
 - **Copy in one click** — the web UI renders the short link with a
   copy-to-clipboard button and is keyboard-accessible.
 
@@ -78,8 +72,7 @@ flowchart LR
   speed (fast redirects) with RDB/AOF persistence so mappings survive restarts.
   Keys are namespaced and versioned as `v1:link:{alias}`.
 - **Infisical** — secrets (e.g. Redis credentials) live in Infisical and are
-  injected into the runtime environment at deploy time; nothing sensitive is
-  committed to the repository.
+  injected into the runtime environment at deploy time.
 - **Railway** — hosts the staging and production environments, pulling the
   container image and fetching secrets from Infisical at runtime.
 
@@ -190,10 +183,7 @@ flowchart TD
 The day-to-day contributor flow is therefore: branch off `main`, make your
 change, run the relevant test layer(s) locally, open a PR, and let CI verify it.
 Once merged, staging deploys and is verified automatically; production promotion
-is a deliberate, reviewed step. Branch and merge conventions are described in
-[docs/milestones/mvp/branch-policy.md](docs/milestones/mvp/branch-policy.md), and
-the definition of done in
-[docs/milestones/mvp/definition-of-done.md](docs/milestones/mvp/definition-of-done.md).
+is automatic after staging is verified. 
 
 ## Project layout
 
