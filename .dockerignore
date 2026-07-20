@@ -1,0 +1,60 @@
+# Docker build-context rules for the fold.link image build
+# (docs/milestones/mvp/tickets/MVP-027-add-docker-build-context-rules.md).
+#
+# The Dockerfile's build stage only COPYs the Gradle wrapper, lockfiles,
+# build.gradle/settings.gradle, and src/ — nothing else here is needed to
+# build or run the image. Keeping the sent context to that minimum keeps
+# builds fast and guarantees VCS history, local secrets, and generated
+# output never reach the Docker daemon.
+
+# VCS data
+.git/
+.gitignore
+.gitlab-ci.yml
+
+# Secrets / local environment files — never sent to the build context,
+# including the non-secret .env.example (the build doesn't need it).
+.env
+.env.*
+
+# Local Gradle build output and caches (rebuilt fresh in the build stage)
+build/
+.gradle/
+.gradle-user-home/
+
+# Node / frontend tooling — unused by the Docker build
+node_modules/
+npm-debug.log*
+coverage/
+.nyc_output/
+
+# k6 load-test output
+*.k6-results.json
+k6-results/
+
+# IDE metadata
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Infisical local artifacts
+.infisical.json
+.infisical/
+
+# Documentation-only artifacts — not needed to build or run the image
+docs/
+README.md
+*.md
+
+# Docker metadata itself does not need to be in its own build context
+Dockerfile
+.dockerignore
