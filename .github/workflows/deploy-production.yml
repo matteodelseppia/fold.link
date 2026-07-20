@@ -2,7 +2,7 @@ name: Deploy Production
 
 on:
   workflow_run:
-    workflows: [Staging System Tests]
+    workflows: [Deploy]
     types: [completed]
 
 env:
