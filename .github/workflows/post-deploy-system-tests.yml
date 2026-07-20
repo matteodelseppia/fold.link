@@ -1,0 +1,42 @@
+name: Post-Deployment System Tests
+
+# deploy.yml's staging/production jobs each declare `environment:`, so
+# GitHub Actions automatically records a Deployment and its status for
+# them -- no separate Deployments API call is needed to produce this
+# event.
+on:
+  deployment_status:
+    states: [success]
+
+jobs:
+  post_deploy_system_test:
+    if: github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Test the code that was actually deployed, not whatever main
+          # happens to be at event time.
+          ref: ${{ github.event.deployment.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.14.0"
+
+      - name: Resolve deployed base URL
+        id: base_url
+        run: |
+          case "${{ github.event.deployment.environment }}" in
+            staging) echo "url=${{ vars.STAGING_BASE_URL }}" >> "$GITHUB_OUTPUT" ;;
+            production) echo "url=${{ vars.PRODUCTION_BASE_URL }}" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "Unrecognized deployment environment '${{ github.event.deployment.environment }}'; skipping." >&2
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Run system tests against deployed environment
+        if: steps.base_url.outputs.skip != 'true'
+        run: node --test test/system/*.test.mjs
+        env:
+          APP_BASE_URL: ${{ steps.base_url.outputs.url }}
