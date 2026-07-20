@@ -61,6 +61,7 @@ RUN groupadd --system foldlink \
 
 WORKDIR /app
 COPY --from=build --chown=foldlink:foldlink /workspace/build/libs/*.jar app.jar
+COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 USER foldlink
 
@@ -78,4 +79,4 @@ HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
         && grep -q "\"status\":\"UP\"" <&3 \
     ' || exit 1
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["docker-entrypoint.sh"]
