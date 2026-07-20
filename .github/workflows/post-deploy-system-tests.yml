@@ -1,19 +1,25 @@
 name: Staging System Tests
 
+# Triggered off the Deploy workflow rather than a raw deployment_status event.
+# `on: deployment_status` has no environment filter, so it fires for every
+# environment (staging, production, and Railway's own "fold.link / production"
+# deployments), which then get skipped by a job-level `if` — producing a run
+# for each production deploy that immediately no-ops. The Deploy workflow only
+# deploys staging (production lives in deploy-production.yml), so its successful
+# completion is exactly "staging is deployed" with no production noise.
 on:
-  deployment_status:
-    states: [success]
+  workflow_run:
+    workflows: [Deploy]
+    types: [completed]
 
 jobs:
   post_deploy_system_test:
-    if: >-
-      github.event.deployment_status.state == 'success' &&
-      github.event.deployment.environment == 'staging'
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.deployment.sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -28,7 +34,7 @@ jobs:
     # MVP-110: bounded read-heavy k6 gate against the candidate staging
     # deployment, run after functional system tests pass. A threshold
     # failure here fails this job and so blocks promotion of this commit
-    # to production (see deploy.yml's `production` job).
+    # to production (see deploy-production.yml's `production` job).
     needs: [post_deploy_system_test]
     runs-on: ubuntu-latest
     env:
@@ -36,7 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.deployment.sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Install k6
         run: |
@@ -59,7 +65,7 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: k6-staging-summary-${{ github.event.deployment.sha }}
+          name: k6-staging-summary-${{ github.event.workflow_run.head_sha }}
           path: staging.k6-results.json
           retention-days: 30
           if-no-files-found: ignore
