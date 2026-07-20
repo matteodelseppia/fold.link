@@ -23,6 +23,15 @@ RUN ./gradlew bootJar --console=plain --no-daemon
 # ---- Runtime stage: only the JRE and the built jar, run as non-root ----
 FROM eclipse-temurin:25.0.3_9-jre-noble@sha256:2f1da100788559b397bcf48c736169ea5b070bde84e55f203bbee8e83d87a175 AS runtime
 
+# Build metadata only -- never a secret. Left at their defaults for local
+# `docker build` (docs/milestones/mvp/tickets/MVP-049-add-gitlab-container-build-job.md);
+# CI passes the real commit SHA and UTC build timestamp explicitly.
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+LABEL org.opencontainers.image.revision="${GIT_COMMIT}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.source="https://gitlab.com/matteodelseppia.cc/fold.link"
+
 # Matches server.port's default in application.yml (SERVER_PORT env var).
 ENV SERVER_PORT=8080
 EXPOSE ${SERVER_PORT}

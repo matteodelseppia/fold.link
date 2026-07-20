@@ -20,6 +20,7 @@ stages:
   - test
   - build
   - smoke_test
+  - package
   - sync_work_items
 
 .gradle_cache: &gradle_cache
@@ -126,6 +127,50 @@ container_smoke_test:
     # (same Dockerfile + source the build/test stages just validated).
     - docker build -t "foldlink-app:${CI_COMMIT_SHORT_SHA}" .
     - ./scripts/container-smoke-test.sh "foldlink-app:${CI_COMMIT_SHORT_SHA}"
+  artifacts:
+    when: on_failure
+    expire_in: "7 days"
+    paths:
+      - container-smoke-logs/
+
+build_image:
+  stage: package
+  # Runs after the smoke gate (container_smoke_test) has already passed --
+  # stage ordering stops the pipeline before this job starts otherwise.
+  # This job never pushes anywhere (see publish_image, main-only, below),
+  # so an MR pipeline running this job never produces a production-consumed
+  # tag -- there's simply nowhere for it to go from here.
+  image: docker:27.5.1-cli
+  services:
+    - docker:27.5.1-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    LOG_DIR: "$CI_PROJECT_DIR/container-smoke-logs"
+  before_script:
+    - apk add --no-cache bash
+  script:
+    - |
+      build_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      docker build \
+        --build-arg GIT_COMMIT="$CI_COMMIT_SHA" \
+        --build-arg BUILD_DATE="$build_date" \
+        -t "foldlink-app:${CI_COMMIT_SHORT_SHA}" .
+    # Re-validates the labeled candidate itself (not just the throwaway
+    # image the smoke gate built), per this ticket's own testing criterion.
+    - ./scripts/container-smoke-test.sh "foldlink-app:${CI_COMMIT_SHORT_SHA}"
+    - |
+      revision_label="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "foldlink-app:${CI_COMMIT_SHORT_SHA}")"
+      created_label="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.created" }}' "foldlink-app:${CI_COMMIT_SHORT_SHA}")"
+      echo "image labels: revision=${revision_label} created=${created_label}"
+      if [ "$revision_label" != "$CI_COMMIT_SHA" ]; then
+        echo "ERROR: image revision label '${revision_label}' does not match CI_COMMIT_SHA '${CI_COMMIT_SHA}'." >&2
+        exit 1
+      fi
+      if [ -z "$created_label" ] || [ "$created_label" = "unknown" ]; then
+        echo "ERROR: image created label is missing or unset." >&2
+        exit 1
+      fi
   artifacts:
     when: on_failure
     expire_in: "7 days"
