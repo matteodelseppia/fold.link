@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>fold.link — shorten a URL</title>
+    <meta name="description" content="A minimal, fast URL shortener. No tracking, no accounts." />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="hero">
+        <h1>fold<span class="accent">.</span>link</h1>
+        <p class="tagline">Paste a long URL. Get a short one.</p>
+      </header>
+
+      <main>
+        <form id="shorten-form" novalidate>
+          <label for="url-input">Destination URL</label>
+          <input
+            type="url"
+            id="url-input"
+            name="url"
+            placeholder="https://example.com/a/very/long/path"
+            autocomplete="off"
+            spellcheck="false"
+            aria-describedby="url-help"
+            aria-invalid="false"
+            required
+          />
+          <p id="url-help" class="help">Must start with http:// or https://</p>
+
+          <button type="submit" id="submit-btn">
+            <span class="btn-label">Shorten</span>
+          </button>
+        </form>
+
+        <p id="form-error" class="form-error" role="alert" hidden></p>
+
+        <section id="result" class="result" hidden>
+          <h2 class="result-label">Your short link</h2>
+          <div class="result-row">
+            <a id="result-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+            <button type="button" id="copy-btn" disabled>Copy link</button>
+          </div>
+          <p id="copy-status" class="copy-status" aria-live="polite"></p>
+        </section>
+      </main>
+
+      <footer>
+        <p>No tracking. No accounts. Links persist.</p>
+      </footer>
+    </div>
+    <script src="/js/app.js" defer></script>
+  </body>
+</html>
