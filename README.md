@@ -148,7 +148,7 @@ with markdownlint (`npm run lint:md`).
 
 ## Development & deployment workflow
 
-CI/CD runs on **GitHub Actions** and deploys to **Railway**. There are three
+CI/CD runs on **GitHub Actions** and deploys to **Railway**. There are four
 workflows:
 
 1. **[CI](.github/workflows/ci.yml)** — runs on every pull request and on push
@@ -157,19 +157,19 @@ workflows:
    **k6 smoke** test against a freshly built image. System and load jobs only run
    after the faster checks pass, and merges are blocked unless everything is
    green.
-2. **[Deploy](.github/workflows/deploy.yml)** — has two jobs, each triggered by
-   a different workflow completing on `main`. The **staging** job runs when CI
-   completes successfully: it installs the Railway CLI, runs `railway up` to
+2. **[Deploy](.github/workflows/deploy.yml)** — triggered when CI completes
+   successfully on `main`. It installs the Railway CLI and runs `railway up` to
    deploy the commit to the **staging** environment, then smoke-tests staging's
-   readiness endpoint. The **production** job runs when Staging System Tests
-   completes successfully: it deploys the same commit to production behind a
-   manual approval gate (configured via required reviewers on the `production`
-   GitHub Environment).
+   readiness endpoint.
 3. **[Staging System Tests](.github/workflows/post-deploy-system-tests.yml)** —
    fires on a successful staging deployment: it re-runs the full system test
    suite against the live staging URL and then a bounded read-heavy **k6 gate**.
    A threshold failure here fails the run and so blocks promotion of that commit
    to production.
+4. **[Deploy Production](.github/workflows/deploy-production.yml)** — triggered
+   when Staging System Tests completes successfully. It deploys the same commit
+   to production behind a manual approval gate (configured via required
+   reviewers on the `production` GitHub Environment).
 
 ```mermaid
 %%{init: {"themeVariables": {"nodePadding": 20}}}%%
