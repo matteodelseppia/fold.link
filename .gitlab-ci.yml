@@ -282,6 +282,20 @@ deploy_staging:
     # is only accepted via RAILWAY_API_TOKEN -- RAILWAY_TOKEN returned
     # "Unauthorized" for the same token/command/target.)
     - export RAILWAY_API_TOKEN="$RAILWAY_STAGING_TOKEN"
+    # Snapshot the currently-deployed deployment ID *before* triggering
+    # anything. Rollout polling below only trusts a deployment whose ID
+    # differs from this one -- otherwise a poll can observe the
+    # *pre-existing* deployment's SUCCESS status/digest (a real failure
+    # mode hit in practice: `service source connect` followed immediately
+    # by `redeploy --from-source` has a short backend propagation gap, so
+    # the very first poll(s) can still see the old deployment as "the
+    # latest" one).
+    - |
+      before_id="$(railway deployment list \
+        --service "$RAILWAY_SERVICE_ID" --project "$RAILWAY_PROJECT_ID" \
+        --environment "$RAILWAY_ENV_SLUG" --limit 1 --json \
+        | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[0]["id"] if d else "")')"
+      echo "pre-existing deployment (to be superseded): ${before_id:-<none>}"
     # Repoints the service's source at the exact digest -- this, not a
     # tag, is what gets deployed below.
     - |
@@ -299,52 +313,54 @@ deploy_staging:
         --environment "$RAILWAY_ENV_SLUG" \
         | tee redeploy-output.json \
         | sed "s/${RAILWAY_STAGING_TOKEN}/[REDACTED]/g"
-    # Bounded wait for rollout status (DeploymentStatus enum verified via
+    # Bounded wait for a *new* deployment (id != before_id) to reach a
+    # terminal state, fetching id/status/digest together on every poll so
+    # the final digest check (the testing criterion) can't itself race
+    # against a still-propagating read. DeploymentStatus enum verified via
     # Railway's public GraphQL schema: SUCCESS is the only terminal-success
     # value; FAILED/CRASHED/REMOVED/SKIPPED/NEEDS_APPROVAL are terminal
     # failures a CI job can't recover from -- NEEDS_APPROVAL specifically
-    # means a human must click Approve in the dashboard). `deployment list
-    # --json` returns a plain JSON array, most recent first; index [0] is
-    # this deploy (verified directly against this project).
+    # means a human must click Approve in the dashboard. Field names
+    # (id/status/meta.imageDigest) verified directly against this project.
     - |
-      status=""
+      digest="$(cat image-digest.txt)"
+      dep_id="" dep_status="" dep_digest=""
       for attempt in $(seq 1 "$ROLLOUT_RETRIES"); do
-        status="$(railway deployment list \
+        line="$(railway deployment list \
           --service "$RAILWAY_SERVICE_ID" --project "$RAILWAY_PROJECT_ID" \
           --environment "$RAILWAY_ENV_SLUG" --limit 1 --json \
-          | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[0]["status"] if d else "")' 2>/dev/null || echo "")"
-        echo "attempt ${attempt}/${ROLLOUT_RETRIES}: status=${status:-<unknown>}"
-        case "$status" in
+          | python3 -c 'import json,sys; d=json.load(sys.stdin); dep=d[0] if d else {}; print("%s|%s|%s" % (dep.get("id",""), dep.get("status",""), dep.get("meta",{}).get("imageDigest","")))' 2>/dev/null || echo "||")"
+        IFS='|' read -r dep_id dep_status dep_digest <<< "$line"
+        if [ -z "$dep_id" ] || [ "$dep_id" = "$before_id" ]; then
+          echo "attempt ${attempt}/${ROLLOUT_RETRIES}: still the pre-existing deployment (${before_id:-<none>}), waiting for the new one..."
+          sleep "$ROLLOUT_INTERVAL"
+          continue
+        fi
+        echo "attempt ${attempt}/${ROLLOUT_RETRIES}: new deployment ${dep_id} status=${dep_status:-<unknown>}"
+        case "$dep_status" in
           SUCCESS)
             break
             ;;
           FAILED|CRASHED|REMOVED|SKIPPED|NEEDS_APPROVAL)
-            echo "ERROR: Railway staging deployment ended in a terminal failure state: ${status}." >&2
+            echo "ERROR: Railway staging deployment ${dep_id} ended in a terminal failure state: ${dep_status}." >&2
             exit 1
             ;;
         esac
         sleep "$ROLLOUT_INTERVAL"
       done
-      if [ "$status" != "SUCCESS" ]; then
-        echo "ERROR: Railway staging deployment did not reach SUCCESS within $((ROLLOUT_RETRIES * ROLLOUT_INTERVAL))s (last observed status: ${status:-<unknown>})." >&2
+      if [ "$dep_status" != "SUCCESS" ] || [ -z "$dep_id" ] || [ "$dep_id" = "$before_id" ]; then
+        echo "ERROR: Railway staging did not roll out a new SUCCESS deployment within $((ROLLOUT_RETRIES * ROLLOUT_INTERVAL))s (last observed: id=${dep_id:-<none>} status=${dep_status:-<unknown>})." >&2
         exit 1
       fi
-    # Testing criterion: confirm Railway actually reports the same digest
-    # we asked it to deploy (deployment.meta.imageDigest, "sha256:...",
-    # verified directly against this project to be the exact field Railway
-    # populates from an image-source deployment).
-    - |
-      digest="$(cat image-digest.txt)"
-      deployed_digest="$(railway deployment list \
-        --service "$RAILWAY_SERVICE_ID" --project "$RAILWAY_PROJECT_ID" \
-        --environment "$RAILWAY_ENV_SLUG" --limit 1 --json \
-        | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[0].get("meta",{}).get("imageDigest","") if d else "")')"
-      echo "deployed digest: ${deployed_digest}"
-      if [ "$deployed_digest" != "$digest" ]; then
-        echo "ERROR: Railway staging's deployed digest '${deployed_digest}' does not match the pushed digest '${digest}'." >&2
+      # Testing criterion: confirm the new deployment's digest matches
+      # what we pushed -- captured in the same poll as its SUCCESS status,
+      # so this can't race against a separate, later read.
+      echo "deployed digest: ${dep_digest}"
+      if [ "$dep_digest" != "$digest" ]; then
+        echo "ERROR: Railway staging's new deployment (${dep_id}) digest '${dep_digest}' does not match the pushed digest '${digest}'." >&2
         exit 1
       fi
-      echo "verified: Railway staging reports the deployed digest ${digest}"
+      echo "verified: new deployment ${dep_id} is SUCCESS and matches digest ${digest}"
   artifacts:
     when: always
     expire_in: "90 days"
