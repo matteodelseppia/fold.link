@@ -101,3 +101,27 @@ jobs:
           name: system-test-logs
           path: system-test-logs/
           retention-days: 7
+
+  k6_smoke:
+    needs: [system_test]
+    runs-on: ubuntu-latest
+    env:
+      K6_VERSION: "0.54.0"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install k6
+        run: |
+          curl -L "https://github.com/grafana/k6/releases/download/v${K6_VERSION}/k6-v${K6_VERSION}-linux-amd64.tar.gz" \
+            | tar xz --strip-components 1 -C /usr/local/bin "k6-v${K6_VERSION}-linux-amd64/k6"
+          k6 version
+      - run: docker build -t "foldlink-app:${GITHUB_SHA::8}" .
+      - run: ./scripts/k6-ci-smoke.sh "foldlink-app:${GITHUB_SHA::8}"
+        env:
+          SUMMARY_PATH: ${{ github.workspace }}/smoke.k6-results.json
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-smoke-summary
+          path: smoke.k6-results.json
+          retention-days: 30
+          if-no-files-found: ignore
