@@ -157,14 +157,15 @@ workflows:
    **k6 smoke** test against a freshly built image. System and load jobs only run
    after the faster checks pass, and merges are blocked unless everything is
    green.
-2. **[Deploy](.github/workflows/deploy.yml)** — triggered when CI completes
+2. **[Deploy to Staging](.github/workflows/deploy.yml)** — triggered when CI completes
    successfully on `main`. It installs the Railway CLI and runs `railway up` to
    deploy the commit to the **staging** environment and smoke-test its readiness
    endpoint, then re-runs the full system test suite against the live staging URL
    followed by a bounded read-heavy **k6 gate**. A failure in either test job
    fails the workflow and so blocks promotion of that commit to production.
-3. **[Deploy Production](.github/workflows/deploy-production.yml)** — triggered
-   when Deploy completes successfully (staging deployed and verified). It deploys
+3. **[Deploy to Production](.github/workflows/deploy-production.yml)** — triggered
+   when Deploy to Staging completes successfully (staging deployed and verified).
+   It deploys
    the same commit to production behind a manual approval gate (configured via
    required reviewers on the `production` GitHub Environment).
 

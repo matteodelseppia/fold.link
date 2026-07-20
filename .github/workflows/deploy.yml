@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy to Staging
 
 on:
   workflow_run:
@@ -65,8 +65,9 @@ jobs:
   k6_staging_gate:
     # MVP-110: bounded read-heavy k6 gate against the candidate staging
     # deployment, run after functional system tests pass. A threshold
-    # failure here fails this job and so fails the Deploy workflow, which
-    # blocks promotion of this commit to production (see deploy-production.yml).
+    # failure here fails this job and so fails the Deploy to Staging workflow,
+    # which blocks promotion of this commit to production (see
+    # deploy-production.yml).
     needs: [post_deploy_system_test]
     runs-on: ubuntu-latest
     env:
