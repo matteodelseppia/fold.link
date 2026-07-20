@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GRADLE_USER_HOME: ${{ github.workspace }}/.gradle-user-home
+
+jobs:
+  markdown_lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.14.0"
+      - run: npm ci
+      - run: npm run lint:md
+
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      tickets: ${{ steps.filter.outputs.tickets }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            tickets:
+              - 'docs/milestones/mvp/tickets/*.md'
+
+  check_ticket_index:
+    needs: changes
+    if: needs.changes.outputs.tickets == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python3 scripts/check_ticket_index_links.py
+
+  formatting_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21.0.8+9"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GRADLE_USER_HOME }}/caches/modules-2
+            ${{ env.GRADLE_USER_HOME }}/wrapper/dists
+          key: gradle-${{ hashFiles('gradle.lockfile', 'gradle/wrapper/gradle-wrapper.properties') }}
+      - run: ./gradlew spotlessCheck --console=plain --no-daemon
+
+  unit_test:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7.4.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21.0.8+9"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GRADLE_USER_HOME }}/caches/modules-2
+            ${{ env.GRADLE_USER_HOME }}/wrapper/dists
+          key: gradle-${{ hashFiles('gradle.lockfile', 'gradle/wrapper/gradle-wrapper.properties') }}
+      - run: ./gradlew test --console=plain --no-daemon
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: |
+            build/test-results/test/
+            build/reports/tests/test/
+          retention-days: 30
+
+  build_jar:
+    needs: [formatting_check, unit_test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21.0.8+9"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GRADLE_USER_HOME }}/caches/modules-2
+            ${{ env.GRADLE_USER_HOME }}/wrapper/dists
+          key: gradle-${{ hashFiles('gradle.lockfile', 'gradle/wrapper/gradle-wrapper.properties') }}
+      - run: ./gradlew bootJar --console=plain --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: build/libs/*.jar
+          retention-days: 30
+
+  container_smoke_test:
+    needs: build_jar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t "foldlink-app:${GITHUB_SHA::8}" .
+      - run: ./scripts/container-smoke-test.sh "foldlink-app:${GITHUB_SHA::8}"
+        env:
+          LOG_DIR: ${{ github.workspace }}/container-smoke-logs
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-smoke-logs
+          path: container-smoke-logs/
+          retention-days: 7
