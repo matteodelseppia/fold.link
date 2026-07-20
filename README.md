@@ -169,7 +169,6 @@ workflows:
    suite against the live staging URL and then a bounded read-heavy **k6 gate**.
    A threshold failure here fails the run and so blocks promotion of that commit.
 
-
 ```mermaid
 %%{init: {"themeVariables": {"nodePadding": 20}}}%%
 flowchart TD
@@ -184,7 +183,7 @@ flowchart TD
 The day-to-day contributor flow is therefore: branch off `main`, make your
 change, run the relevant test layer(s) locally, open a PR, and let CI verify it.
 Once merged, staging deploys and is verified automatically; production promotion
-is automatic after staging is verified. 
+is automatic after staging is verified.
 
 ## Project layout
 
