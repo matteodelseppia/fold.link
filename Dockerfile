@@ -37,4 +37,18 @@ COPY --from=build --chown=foldlink:foldlink /workspace/build/libs/*.jar app.jar
 
 USER foldlink
 
+# Liveness only (not readiness): a Redis outage must never make the
+# container orchestrator kill and restart an otherwise-healthy JVM
+# process (see docs/milestones/mvp/health-endpoints.md). curl/wget are
+# not present in this minimal runtime image, so the probe speaks raw
+# HTTP/1.1 over bash's built-in /dev/tcp and checks the JSON body for
+# "status":"UP" against the runtime port (SERVER_PORT, not a
+# hard-coded development port).
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
+    CMD bash -c '\
+        exec 3<>/dev/tcp/127.0.0.1/${SERVER_PORT} \
+        && printf "GET /actuator/health/liveness HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3 \
+        && grep -q "\"status\":\"UP\"" <&3 \
+    ' || exit 1
+
 ENTRYPOINT ["java", "-jar", "app.jar"]
