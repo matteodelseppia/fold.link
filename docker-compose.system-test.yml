@@ -1,0 +1,28 @@
+# Disposable Compose stack for CI system tests only (see
+# scripts/system-test.sh and test/system/). Brings up Redis and the
+# application image together so the Node test runner suite can exercise
+# the real HTTP API. Not used for local development (docker-compose.yml
+# covers that) or production.
+services:
+  redis:
+    image: ${REDIS_IMAGE:-redis:7.4.2-alpine}
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE must be set}
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      APP_BASE_URL: http://localhost:${APP_PORT:-8080}
+      SERVER_PORT: ${APP_PORT:-8080}
+    ports:
+      - "${APP_PORT:-8080}:${APP_PORT:-8080}"

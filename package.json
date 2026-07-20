@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "description": "fold.link repository tooling",
   "scripts": {
-    "lint:md": "markdownlint-cli2 \"**/*.md\""
+    "lint:md": "markdownlint-cli2 \"**/*.md\"",
+    "test:system": "node --test test/system/*.test.mjs"
   },
   "devDependencies": {
     "markdownlint-cli2": "0.23.1"
