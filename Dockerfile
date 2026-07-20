@@ -27,6 +27,33 @@ FROM eclipse-temurin:25.0.3_9-jre-noble@sha256:2f1da100788559b397bcf48c736169ea5
 ENV SERVER_PORT=8080
 EXPOSE ${SERVER_PORT}
 
+# Pinned Infisical CLI (matches docs/milestones/mvp/toolchain.md's v0.41.89
+# pin). Downloaded directly from the GitHub release (not the packagecloud
+# apt repo) so the exact binary can be checksum-verified against the
+# release's published checksums.txt, consistent with how the base images
+# above are pinned by digest rather than by a mutable tag. curl/ca-certs
+# are installed only for this step and purged afterward, along with the apt
+# metadata, so the runtime image doesn't retain build-time-only tooling. No
+# Infisical credential is ever present here -- only the CLI binary itself.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl; \
+    infisical_version="0.41.89"; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+      amd64) checksum="6dd031a62d12f0d04209a2ff296978bbf8178214f059b46aad5d433c02b12854" ;; \
+      arm64) checksum="4a16c82b04e30b816f879b1cab74c39bb614a025a03190a76d15f8d2c74609d5" ;; \
+      *) echo "unsupported architecture for Infisical CLI: ${arch}" >&2; exit 1 ;; \
+    esac; \
+    tarball="infisical_${infisical_version}_linux_${arch}.tar.gz"; \
+    curl -fsSLO "https://github.com/Infisical/infisical/releases/download/infisical-cli/v${infisical_version}/${tarball}"; \
+    echo "${checksum}  ${tarball}" | sha256sum -c -; \
+    tar -xzf "${tarball}" infisical; \
+    install -o root -g root -m 0755 infisical /usr/local/bin/infisical; \
+    rm -f "${tarball}" infisical; \
+    apt-get purge -y --auto-remove curl; \
+    rm -rf /var/lib/apt/lists/*
+
 # Dedicated system user/group: no login shell, no home directory contents,
 # least privilege for the running process.
 RUN groupadd --system foldlink \
