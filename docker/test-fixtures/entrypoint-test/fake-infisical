@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Stands in for the real `infisical` CLI so scripts/test-infisical-entrypoint.sh
+# can exercise docker/entrypoint.sh's auth/export handling deterministically.
+# Behavior is controlled by env vars set by the test driver:
+#   FAKE_INFISICAL_LOGIN_FAIL=1   makes the `login` subcommand fail.
+#   FAKE_INFISICAL_EXPORT_FAIL=1  makes the `export` subcommand fail.
+set -euo pipefail
+
+case "${1:-}" in
+  login)
+    if [ "${FAKE_INFISICAL_LOGIN_FAIL:-0}" = "1" ]; then
+      # Deliberately (and unrealistically) echoes the client secret back,
+      # so the test driver can confirm the entrypoint's redaction actually
+      # strips it rather than relying on the real CLI never doing this.
+      echo "authentication failed: bad client secret '${INFISICAL_CLIENT_SECRET:-}'" >&2
+      exit 1
+    fi
+    echo "fake-access-token-abc123"
+    ;;
+  export)
+    if [ "${FAKE_INFISICAL_EXPORT_FAIL:-0}" = "1" ]; then
+      echo "export failed: identity has no read access to this path" >&2
+      exit 1
+    fi
+    echo 'FAKE_SECRET="from-infisical"'
+    ;;
+  *)
+    echo "fake-infisical: unsupported subcommand: ${1:-}" >&2
+    exit 1
+    ;;
+esac

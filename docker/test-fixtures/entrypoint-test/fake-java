@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Stands in for the real `java` process so scripts/test-infisical-entrypoint.sh
+# can observe what docker/entrypoint.sh injected into its environment, and
+# how it responds to termination signals, without needing a real JVM/app
+# startup.
+term_handler() {
+  echo "FAKE_JAVA_GOT_SIGTERM"
+  exit 0
+}
+trap term_handler TERM
+
+echo "FAKE_JAVA_STARTED pid=$$ FAKE_SECRET=${FAKE_SECRET:-<unset>} REDIS_HOST=${REDIS_HOST:-<unset>}"
+
+sleep infinity &
+wait $!
