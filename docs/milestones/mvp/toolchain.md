@@ -40,6 +40,7 @@ installation command that failed so it can be run directly.
 | Gradle        | owned by wrapper (MVP-011) | Gradle wrapper (`gradlew`)        |
 | k6            | v0.54.0                    | manual install (not mise-managed) |
 | Infisical CLI | v0.41.89                   | manual install (not mise-managed) |
+| Railway CLI   | v5.27.0                    | manual install (not mise-managed) |
 
 ### Java
 
@@ -89,6 +90,27 @@ sudo apt-get install -y infisical=0.41.89
 ```
 
 Verify with `infisical --version` and confirm it reports `0.41.89`.
+
+### Railway CLI
+
+Also not mise/asdf-managed, so it is installed directly. Pinned version:
+**v5.27.0**. Used locally for `railway` administration and in CI
+(MVP-051's `deploy_staging` job, which installs it from a
+checksum-verified GitHub release binary rather than a package manager).
+
+```bash
+# macOS
+brew install railway
+
+# Linux - install the exact pinned release (example for x86_64/musl,
+# matching the CI job's alpine base; swap the arch segment for aarch64)
+curl -fsSLO https://github.com/railwayapp/cli/releases/download/v5.27.0/railway-v5.27.0-x86_64-unknown-linux-musl.tar.gz
+tar -xzf railway-v5.27.0-x86_64-unknown-linux-musl.tar.gz railway
+sudo install -m 0755 railway /usr/local/bin/railway
+rm -f railway-v5.27.0-x86_64-unknown-linux-musl.tar.gz railway
+```
+
+Verify with `railway --version` and confirm it reports `5.27.0`.
 
 ## Testing evidence
 

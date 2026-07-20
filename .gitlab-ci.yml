@@ -22,6 +22,7 @@ stages:
   - smoke_test
   - package
   - publish
+  - deploy_staging
   - sync_work_items
 
 .gradle_cache: &gradle_cache
@@ -228,6 +229,124 @@ publish_image:
     paths:
       - image-digest.txt
       - image-ref.txt
+
+deploy_staging:
+  stage: deploy_staging
+  # Only main ever deploys -- an MR pipeline never runs this job at all.
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  # Needs publish_image's artifacts (image-ref.txt/image-digest.txt) rather
+  # than the default "download every earlier stage's artifacts" behavior,
+  # and this also gates execution on publish_image having actually
+  # succeeded for this commit.
+  needs:
+    - job: publish_image
+      artifacts: true
+  image: alpine:3.21
+  variables:
+    RAILWAY_CLI_VERSION: "5.27.0"
+    RAILWAY_ENV_SLUG: staging
+    ROLLOUT_RETRIES: "60"
+    ROLLOUT_INTERVAL: "10"
+  before_script:
+    - apk add --no-cache bash curl python3
+    # Pinned, checksum-verified Railway CLI (musl build, matches this
+    # job's alpine base) -- same pattern as the Infisical CLI install in
+    # the Dockerfile (MVP-036). No published checksums.txt exists upstream
+    # for this CLI, so these are the sha256 sums of the exact release
+    # assets, computed and pinned here.
+    - |
+      set -eux
+      arch="$(uname -m)"
+      case "$arch" in
+        x86_64) checksum="e66b93ee7f494ea4f87e5cb61b1f64b9c98d956e6ef0666e64663df323165fe1" ;;
+        aarch64) checksum="7e4b75090317a75f1164cb5d413235cf1624db88bd871d85f3a2f6952aba8f12" ;;
+        *) echo "unsupported architecture for Railway CLI: ${arch}" >&2; exit 1 ;;
+      esac
+      tarball="railway-v${RAILWAY_CLI_VERSION}-${arch}-unknown-linux-musl.tar.gz"
+      curl -fsSLO "https://github.com/railwayapp/cli/releases/download/v${RAILWAY_CLI_VERSION}/${tarball}"
+      echo "${checksum}  ${tarball}" | sha256sum -c -
+      tar -xzf "$tarball" railway
+      install -m 0755 railway /usr/local/bin/railway
+      rm -f "$tarball" railway
+  script:
+    - railway --version
+    - |
+      image_ref="$(cat image-ref.txt)"
+      digest="$(cat image-digest.txt)"
+      echo "Deploying ${image_ref} to Railway staging..."
+    # RAILWAY_STAGING_TOKEN is a project token scoped to (this project,
+    # staging environment) -- reading it into RAILWAY_TOKEN is all the
+    # auth the CLI needs; no `railway login`/`railway link` required.
+    - export RAILWAY_TOKEN="$RAILWAY_STAGING_TOKEN"
+    # Repoints the service's source at the exact digest -- this, not a
+    # tag, is what gets deployed below.
+    - |
+      railway service source connect \
+        --image "$(cat image-ref.txt)" \
+        --service "$RAILWAY_SERVICE_ID" \
+        --project "$RAILWAY_PROJECT_ID" \
+        --environment "$RAILWAY_ENV_SLUG" --json
+    # --from-source is required: a plain `redeploy` just re-runs the
+    # existing deployment and would ignore the source change above.
+    - |
+      railway redeploy --from-source --yes --json \
+        --service "$RAILWAY_SERVICE_ID" \
+        --project "$RAILWAY_PROJECT_ID" \
+        --environment "$RAILWAY_ENV_SLUG" \
+        | tee redeploy-output.json \
+        | sed "s/${RAILWAY_STAGING_TOKEN}/[REDACTED]/g"
+    # Bounded wait for rollout status (DeploymentStatus enum verified via
+    # Railway's public GraphQL schema: SUCCESS is the only terminal-success
+    # value; FAILED/CRASHED/REMOVED/SKIPPED/NEEDS_APPROVAL are terminal
+    # failures a CI job can't recover from -- NEEDS_APPROVAL specifically
+    # means a human must click Approve in the dashboard). `deployment list
+    # --json` returns a plain JSON array, most recent first; index [0] is
+    # this deploy (verified directly against this project).
+    - |
+      status=""
+      for attempt in $(seq 1 "$ROLLOUT_RETRIES"); do
+        status="$(railway deployment list \
+          --service "$RAILWAY_SERVICE_ID" --project "$RAILWAY_PROJECT_ID" \
+          --environment "$RAILWAY_ENV_SLUG" --limit 1 --json \
+          | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[0]["status"] if d else "")' 2>/dev/null || echo "")"
+        echo "attempt ${attempt}/${ROLLOUT_RETRIES}: status=${status:-<unknown>}"
+        case "$status" in
+          SUCCESS)
+            break
+            ;;
+          FAILED|CRASHED|REMOVED|SKIPPED|NEEDS_APPROVAL)
+            echo "ERROR: Railway staging deployment ended in a terminal failure state: ${status}." >&2
+            exit 1
+            ;;
+        esac
+        sleep "$ROLLOUT_INTERVAL"
+      done
+      if [ "$status" != "SUCCESS" ]; then
+        echo "ERROR: Railway staging deployment did not reach SUCCESS within $((ROLLOUT_RETRIES * ROLLOUT_INTERVAL))s (last observed status: ${status:-<unknown>})." >&2
+        exit 1
+      fi
+    # Testing criterion: confirm Railway actually reports the same digest
+    # we asked it to deploy (deployment.meta.imageDigest, "sha256:...",
+    # verified directly against this project to be the exact field Railway
+    # populates from an image-source deployment).
+    - |
+      digest="$(cat image-digest.txt)"
+      deployed_digest="$(railway deployment list \
+        --service "$RAILWAY_SERVICE_ID" --project "$RAILWAY_PROJECT_ID" \
+        --environment "$RAILWAY_ENV_SLUG" --limit 1 --json \
+        | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[0].get("meta",{}).get("imageDigest","") if d else "")')"
+      echo "deployed digest: ${deployed_digest}"
+      if [ "$deployed_digest" != "$digest" ]; then
+        echo "ERROR: Railway staging's deployed digest '${deployed_digest}' does not match the pushed digest '${digest}'." >&2
+        exit 1
+      fi
+      echo "verified: Railway staging reports the deployed digest ${digest}"
+  artifacts:
+    when: always
+    expire_in: "90 days"
+    paths:
+      - redeploy-output.json
 
 import_work_items:
   stage: sync_work_items
