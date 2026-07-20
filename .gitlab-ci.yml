@@ -275,10 +275,13 @@ deploy_staging:
       image_ref="$(cat image-ref.txt)"
       digest="$(cat image-digest.txt)"
       echo "Deploying ${image_ref} to Railway staging..."
-    # RAILWAY_STAGING_TOKEN is a project token scoped to (this project,
-    # staging environment) -- reading it into RAILWAY_TOKEN is all the
-    # auth the CLI needs; no `railway login`/`railway link` required.
-    - export RAILWAY_TOKEN="$RAILWAY_STAGING_TOKEN"
+    # RAILWAY_STAGING_TOKEN is scoped to (this project, staging
+    # environment) -- reading it into RAILWAY_API_TOKEN is all the auth
+    # the CLI needs; no `railway login`/`railway link` required. (Not
+    # RAILWAY_TOKEN: confirmed against the real project that this token
+    # is only accepted via RAILWAY_API_TOKEN -- RAILWAY_TOKEN returned
+    # "Unauthorized" for the same token/command/target.)
+    - export RAILWAY_API_TOKEN="$RAILWAY_STAGING_TOKEN"
     # Repoints the service's source at the exact digest -- this, not a
     # tag, is what gets deployed below.
     - |
