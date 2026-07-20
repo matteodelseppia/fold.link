@@ -169,15 +169,16 @@ workflows:
    suite against the live staging URL and then a bounded read-heavy **k6 gate**.
    A threshold failure here fails the run and so blocks promotion of that commit.
 
+
 ```mermaid
+%%{init: {"themeVariables": {"nodePadding": 20}}}%%
 flowchart TD
-    PR[Pull Request] --> CI[CI: lint, format, unit,<br/>frontend, system, k6 smoke]
+    PR[PR] --> CI[CI]
     CI -->|green| Merge[Merge to main]
-    Merge --> CI2[CI re-runs on main]
-    CI2 -->|success| Staging[Deploy to Railway staging]
-    Staging --> Smoke[Readiness smoke test]
-    Smoke --> Post[Staging system tests<br/>+ k6 read-heavy gate]
-    Post -->|pass| Prod[Promote to production<br/>manual approval, currently gated]
+    Merge --> CI2[CI]
+    CI2 -->|success| Staging[Stage]
+    Staging --> Post[Test Staging]
+    Post -->|pass| Prod[Prod]
 ```
 
 The day-to-day contributor flow is therefore: branch off `main`, make your
