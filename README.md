@@ -1,129 +1,215 @@
 # fold.link
 
-## Getting started
+A minimal, fast URL shortener. No accounts, no tracking — paste a long URL,
+get a short one back, and every visit to that short link is redirected to the
+original destination.
 
-- Accept a valid long URL from a user and generate a unique short alias.
-- Redirect visitors to the original URL when a valid short URL is accessed.
-- Return `404 Not Found` when a short URL alias does not exist.
-- Provide a web UI to submit long URLs and copy the resulting short URL.
-- Reject malformed URLs with a clear validation error.
-- Persist URL mappings so short URLs keep working across restarts and
-  deployments.
-- Securely manage all environment configuration and secrets.
-- Be designed and tested for a read-heavy workload (redirects far outnumber
-  creations).
-- Generate aliases that are unique and unguessable enough to make accidental
-  collisions practically negligible.
+![The fold.link web UI: a card with a "Destination URL" field, a "Shorten"
+button, and the resulting short link with a copy-to-clipboard
+button.](docs/assets/screenshot.png)
 
-See [docs/milestones/mvp/requirements.md](docs/milestones/mvp/requirements.md)
-for the full functional and non-functional requirements.
+## What it can do
 
-## Architecture Summary
+- **Shorten a URL** — submit any `http`/`https` URL and receive a short link
+  backed by an 8-character, unguessable, `SecureRandom`-generated alias.
+- **Redirect** — visiting `https://<host>/{alias}` issues a `302 Found` to the
+  original destination (302, not 301, so browsers and CDNs don't cache the
+  mapping).
+- **Reject bad input** — malformed URLs and non-`http(s)` schemes are refused
+  with a clear `400 VALIDATION_ERROR`; unknown aliases return `404`.
+- **Stay up under read-heavy load** — the system is designed and load-tested for
+  a workload where redirects vastly outnumber creations.
+- **Survive restarts** — mappings are persisted, so short links keep working
+  across restarts and redeploys.
+- **Copy in one click** — the web UI renders the short link with a
+  copy-to-clipboard button and is keyboard-accessible.
 
-- **Spring Boot 4 backend** (Java 25) — exposes the REST API for URL
-  creation (`POST /api/v1/links`) and handles the HTTP redirect logic
-  (`GET /{alias}`).
-- **Static frontend** (HTML/CSS/JS) — served directly by the Spring Boot
-  backend from `src/main/resources/static/`, keeping the MVP simple and
-  cohesive.
-- **Redis storage** — the primary data store for URL mappings, chosen for
-  in-memory read speed (critical for fast redirects) with persistence
-  (RDB/AOF) so mappings survive restarts.
-- **Infisical secrets** — sensitive configuration (e.g. Redis credentials)
-  is stored in Infisical and injected into the runtime environment rather
-  than committed to the repository.
-- **Railway deploy** — the application is deployed to Railway, which fetches
-  secrets from Infisical at runtime and hosts the staging and production
-  environments.
+The web UI is served by the backend itself at `/`. There is no separate
+frontend deployment.
+
+## API
+
+| Method & path | Purpose | Success | Errors |
+| --- | --- | --- | --- |
+| `POST /api/v1/links` | Create a short link. Body: `{ "url": "<destination>" }` | `201` with `{ alias, shortUrl, destination }` | `400 VALIDATION_ERROR`, `503 STORAGE_ERROR` |
+| `GET /{alias}` | Redirect to the destination | `302 Found` with `Location` header | `404 ALIAS_NOT_FOUND`, `503 STORAGE_ERROR` |
+| `GET /actuator/health` | Liveness/readiness (readiness fails if Redis is unavailable) | `200`/`503` | — |
+
+Every error response shares the same shape: `{ "error": "<CODE>", "message":
+"<safe message>" }`. The absolute `shortUrl` is always built from the
+configured `app.base-url`, never from request headers, so `Host` /
+`X-Forwarded-Host` cannot spoof the public origin.
+
+Example:
 
 ```shell
-cd existing_repo
-git remote add origin https://gitlab.com/matteodelseppia.cc/fold.link.git
-git branch -M main
-git push -uf origin main
+curl -sX POST http://localhost:8080/api/v1/links \
+  -H 'content-type: application/json' \
+  -d '{"url":"https://example.com/a/very/long/path"}'
+# {"alias":"Xk7pQ2mB","shortUrl":"http://localhost:8080/Xk7pQ2mB","destination":"https://example.com/a/very/long/path"}
+
+curl -i http://localhost:8080/Xk7pQ2mB
+# HTTP/1.1 302 Found
+# Location: https://example.com/a/very/long/path
 ```
+
+## Architecture
+
+```mermaid
+flowchart LR
+    User[User Browser]
+    FE[Static Frontend<br/>HTML / CSS / JS]
+    API[Spring Boot 4 Backend<br/>Java 25]
+    Redis[(Redis<br/>URL mappings)]
+
+    User --> FE
+    FE -->|POST /api/v1/links| API
+    User -->|GET /alias| API
+    API -->|read / write| Redis
+    API -->|302 redirect| User
+```
+
+- **Spring Boot 4 backend (Java 25)** — exposes the REST API
+  (`POST /api/v1/links`) and the redirect logic (`GET /{alias}`), and serves the
+  static frontend.
+- **Static frontend (HTML/CSS/JS)** — served directly by the backend from
+  `src/main/resources/static/`, keeping the MVP simple and cohesive.
+- **Redis** — the primary data store for URL mappings, chosen for in-memory read
+  speed (fast redirects) with RDB/AOF persistence so mappings survive restarts.
+  Keys are namespaced and versioned as `v1:link:{alias}`.
+- **Infisical** — secrets (e.g. Redis credentials) live in Infisical and are
+  injected into the runtime environment at deploy time; nothing sensitive is
+  committed to the repository.
+- **Railway** — hosts the staging and production environments, pulling the
+  container image and fetching secrets from Infisical at runtime.
+
+Key decisions are recorded in
+[docs/milestones/mvp/adr-001-mvp-technical-decisions.md](docs/milestones/mvp/adr-001-mvp-technical-decisions.md)
+and the full design in
+[docs/milestones/mvp/design.md](docs/milestones/mvp/design.md). The requirements
+this MVP traces back to are in
+[docs/milestones/mvp/requirements.md](docs/milestones/mvp/requirements.md).
 
 ## Prerequisites
 
-To build, run, and test this project locally you will need:
+To build, run, and test the project locally you will need:
 
-- **Java 25**
-- **Docker**
-- **Node.js** (for the system test suite)
+- **Java 25** (the Gradle wrapper pins Gradle itself)
+- **Docker** (for the local Redis service and the container/system tests)
+- **Node.js** (for the frontend and system test suites)
 - **k6** (for load testing)
-- **Infisical CLI** (for fetching local development secrets)
-- **Redis** (as the local persistence backend)
+- **Infisical CLI** (optional locally — for fetching development secrets)
+- **Redis** (provided via Docker Compose; see below)
 
-## Planning documents
+Tool versions are pinned in [.mise.toml](.mise.toml) and documented in
+[docs/milestones/mvp/toolchain.md](docs/milestones/mvp/toolchain.md). With `mise`
+installed, `mise install` provisions the pinned Java and Node versions.
 
-## Test and Deploy
+## Local development
 
-Use the built-in continuous integration in GitLab.
+Small, documented helper scripts live in `scripts/dev/` (none of them ever print
+secret values):
 
-- [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-- [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-- [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-- [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-- [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+| Command | Purpose |
+| --- | --- |
+| `scripts/dev/redis-start.sh` | Start the Compose Redis service and wait for it to report healthy. |
+| `scripts/dev/run.sh` | Run the app with configuration injected by the Infisical CLI (falls back to `.env` instructions if Infisical isn't set up). |
+| `scripts/dev/test.sh` | Run the JVM test suite via the pinned Gradle wrapper. |
+| `scripts/dev/redis-stop.sh` | Stop Redis (add `--purge-volume` to also delete its data). |
 
-***
+A typical loop from a fresh shell:
 
-## Editing this README
+```shell
+scripts/dev/redis-start.sh   # bring up local Redis
+scripts/dev/test.sh          # run unit/integration tests
+scripts/dev/run.sh           # start the app on http://localhost:8080
+scripts/dev/redis-stop.sh    # tear down when done
+```
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+If you don't use Infisical locally, copy the safe fixture config and load it into
+your shell instead:
 
-## Suggestions for a good README
+```shell
+cp .env.example .env         # local-only fixture values (not secrets)
+set -a && source .env && set +a
+./gradlew bootRun
+```
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+Local runtime configuration (Spring profile, Redis host, alias length, base URL,
+etc.) is documented inline in [.env.example](.env.example) and typed in
+[`AppProperties`](src/main/java/link/fold/config/AppProperties.java).
 
-## Name
+## Testing
 
-Choose a self-explaining name for your project.
+The project has four test layers, each runnable locally and in CI:
 
-## Description
+| Layer | What it covers | Run it |
+| --- | --- | --- |
+| **Unit / integration** | Domain logic, validation, the Redis repository (against a disposable Redis), API contracts, per-profile config | `./gradlew test` |
+| **Frontend** | The static UI's submit/validation/copy behaviour (jsdom + Node test runner) | `npm run test:frontend` |
+| **System** | End-to-end create → redirect → persistence against the built container | `npm run test:system` (or `scripts/system-test.sh <image>`) |
+| **Load (k6)** | Redirect, creation, and read-heavy mixed scenarios with latency/error thresholds | `k6 run load-tests/k6/scenarios/mixed.js` |
 
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+Formatting is enforced with Spotless (`./gradlew spotlessCheck`) and Markdown
+with markdownlint (`npm run lint:md`).
 
-## Badges
+## Development & deployment workflow
 
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+CI/CD runs on **GitHub Actions** and deploys to **Railway**. There are three
+workflows:
 
-## Visuals
+1. **[CI](.github/workflows/ci.yml)** — runs on every pull request and on push
+   to `main`: Markdown lint, Spotless formatting check, frontend tests, unit
+   tests (with a Redis service container), then a container **system test** and a
+   **k6 smoke** test against a freshly built image. System and load jobs only run
+   after the faster checks pass, and merges are blocked unless everything is
+   green.
+2. **[Deploy](.github/workflows/deploy.yml)** — triggered when CI completes
+   successfully on `main`. It installs the Railway CLI and runs `railway up` to
+   deploy the commit to the **staging** environment, then smoke-tests staging's
+   readiness endpoint. The **production** job is defined but currently gated off
+   (`if: false`); enabling it — together with required reviewers on the
+   `production` GitHub Environment — promotes the same commit to production behind
+   a manual approval.
+3. **[Staging System Tests](.github/workflows/post-deploy-system-tests.yml)** —
+   fires on a successful staging deployment: it re-runs the full system test
+   suite against the live staging URL and then a bounded read-heavy **k6 gate**.
+   A threshold failure here fails the run and so blocks promotion of that commit.
 
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+```mermaid
+flowchart TD
+    PR[Pull Request] --> CI[CI: lint, format, unit,<br/>frontend, system, k6 smoke]
+    CI -->|green| Merge[Merge to main]
+    Merge --> CI2[CI re-runs on main]
+    CI2 -->|success| Staging[Deploy to Railway staging]
+    Staging --> Smoke[Readiness smoke test]
+    Smoke --> Post[Staging system tests<br/>+ k6 read-heavy gate]
+    Post -->|pass| Prod[Promote to production<br/>manual approval, currently gated]
+```
 
-## Installation
+The day-to-day contributor flow is therefore: branch off `main`, make your
+change, run the relevant test layer(s) locally, open a PR, and let CI verify it.
+Once merged, staging deploys and is verified automatically; production promotion
+is a deliberate, reviewed step. Branch and merge conventions are described in
+[docs/milestones/mvp/branch-policy.md](docs/milestones/mvp/branch-policy.md), and
+the definition of done in
+[docs/milestones/mvp/definition-of-done.md](docs/milestones/mvp/definition-of-done.md).
 
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+## Project layout
 
-## Usage
+```text
+src/main/java/link/fold/   Spring Boot backend (api, domain, redis, config)
+src/main/resources/static/ Static frontend (HTML/CSS/JS)
+src/test/java/             JVM unit & integration tests
+test/frontend/             Frontend (jsdom) tests
+test/system/               End-to-end system tests
+load-tests/k6/             k6 load-test scenarios and library
+scripts/                   Dev helpers, system-test and CI smoke scripts
+docker/                    Container entrypoint (Infisical injection) and fixtures
+docs/milestones/mvp/       Requirements, design, ADRs, runbooks, and tickets
+.github/workflows/         CI, deploy, and post-deploy test pipelines
+```
 
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-
-Show your appreciation to those who have contributed to the project.
-
-## License
-
-For open source projects, say how it is licensed.
-
-## Project status
-
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Operational runbooks (deployment, secret rotation, Redis recovery) live under
+[docs/milestones/mvp/](docs/milestones/mvp/).
+</content>
