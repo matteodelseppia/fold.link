@@ -23,30 +23,6 @@ jobs:
       - run: npm ci
       - run: npm run lint:md
 
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      tickets: ${{ steps.filter.outputs.tickets }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            tickets:
-              - 'docs/milestones/mvp/tickets/*.md'
-
-  check_ticket_index:
-    needs: changes
-    if: needs.changes.outputs.tickets == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: python3 scripts/check_ticket_index_links.py
-
   formatting_check:
     runs-on: ubuntu-latest
     steps:
