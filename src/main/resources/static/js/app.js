@@ -10,6 +10,8 @@
   const resultLink = document.getElementById("result-link");
   const copyBtn = document.getElementById("copy-btn");
   const copyStatus = document.getElementById("copy-status");
+  const copyIcon = copyBtn.querySelector(".icon-copy");
+  const checkIcon = copyBtn.querySelector(".icon-check");
 
   const SCHEME_PATTERN = /^https?:\/\//i;
 
@@ -134,11 +136,54 @@
     submit(input.value.trim());
   });
 
+  let copyResetTimer = null;
+
+  function fallbackCopy(text) {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.top = "-1000px";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    textarea.setSelectionRange(0, text.length);
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      ok = false;
+    }
+    document.body.removeChild(textarea);
+    if (!ok) {
+      throw new Error("execCommand copy failed");
+    }
+  }
+
+  async function copyToClipboard(text) {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch {
+        // Clipboard API present but blocked (e.g. insecure context) — fall through.
+      }
+    }
+    fallbackCopy(text);
+  }
+
   copyBtn.addEventListener("click", async () => {
     const url = resultLink.getAttribute("href");
     try {
-      await navigator.clipboard.writeText(url);
+      await copyToClipboard(url);
       copyStatus.textContent = "Copied!";
+      copyIcon.hidden = true;
+      checkIcon.hidden = false;
+      clearTimeout(copyResetTimer);
+      copyResetTimer = setTimeout(() => {
+        copyIcon.hidden = false;
+        checkIcon.hidden = true;
+      }, 2000);
     } catch {
       copyStatus.textContent = "Copy failed — select the link text above and copy manually.";
     }

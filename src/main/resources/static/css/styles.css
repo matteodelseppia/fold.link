@@ -213,9 +213,12 @@ button {
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--accent-strong);
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 0.85rem;
   text-decoration: none;
   overflow-wrap: anywhere;
+  display: flex;
+  align-items: center;
 }
 
 #result-link:hover {
@@ -224,21 +227,29 @@ button {
 
 #copy-btn {
   flex: 0 0 auto;
-  padding: 0.6rem 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  padding: 0.6rem;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text);
-  font-weight: 600;
 }
 
 #copy-btn:hover:not(:disabled) {
   border-color: var(--accent);
+  color: var(--accent-strong);
 }
 
 #copy-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+#copy-btn .icon-check {
+  color: var(--accent-strong);
 }
 
 .copy-status {
