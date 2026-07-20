@@ -4,8 +4,9 @@
 # Brings up the full docker-compose.system-test.yml stack (Redis + the
 # given application image) in a disposable, uniquely-named Compose
 # project, waits for both services to report healthy, then runs the Node
-# test runner suite in test/system/ against the live HTTP API. Currently
-# the only APIs are the liveness/readiness health endpoints.
+# test runner suite in test/system/ against the live HTTP API - currently
+# the health endpoints and the link-creation/redirect APIs
+# (test/system/links.test.mjs).
 #
 # Unlike scripts/container-smoke-test.sh (which curls from a container on
 # an isolated Docker network to also work under GitLab docker-in-docker),
