@@ -8,6 +8,17 @@ spring:
       password: ${REDIS_PASSWORD:}
       ssl:
         enabled: ${REDIS_SSL_ENABLED:false}
+      # Finite timeouts so a Redis outage fails fast (surfacing as a 503,
+      # see link.fold.domain.StorageUnavailableException) instead of
+      # hanging request threads indefinitely.
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT_MS:2000}ms
+      timeout: ${REDIS_COMMAND_TIMEOUT_MS:2000}ms
+      lettuce:
+        pool:
+          enabled: true
+          max-active: ${REDIS_POOL_MAX_ACTIVE:8}
+          max-idle: ${REDIS_POOL_MAX_IDLE:8}
+          min-idle: ${REDIS_POOL_MIN_IDLE:0}
 
 server:
   port: ${SERVER_PORT:8080}

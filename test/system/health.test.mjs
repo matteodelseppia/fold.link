@@ -1,6 +1,7 @@
 // System test for the health API, run against a live app + Redis stack
-// (see scripts/system-test.sh and docker-compose.system-test.yml). These
-// are currently the only two APIs the application exposes.
+// (see scripts/system-test.sh and docker-compose.system-test.yml). The
+// link-creation and redirect APIs are covered separately in
+// test/system/links.test.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
