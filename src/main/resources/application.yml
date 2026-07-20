@@ -19,6 +19,16 @@ spring:
           max-active: ${REDIS_POOL_MAX_ACTIVE:8}
           max-idle: ${REDIS_POOL_MAX_IDLE:8}
           min-idle: ${REDIS_POOL_MIN_IDLE:0}
+  web:
+    resources:
+      # No build-time fingerprinting for the static frontend
+      # (src/main/resources/static/), so every response - HTML included - is
+      # cache-able but must revalidate with the server on each use, rather
+      # than being served stale from a browser/CDN cache after a deploy.
+      cache:
+        cachecontrol:
+          max-age: 1h
+          must-revalidate: true
 
 server:
   port: ${SERVER_PORT:8080}

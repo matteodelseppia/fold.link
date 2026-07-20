@@ -5,9 +5,11 @@
   "description": "fold.link repository tooling",
   "scripts": {
     "lint:md": "markdownlint-cli2 \"**/*.md\"",
-    "test:system": "node --test test/system/*.test.mjs"
+    "test:system": "node --test test/system/*.test.mjs",
+    "test:frontend": "node --test test/frontend/*.test.mjs"
   },
   "devDependencies": {
+    "jsdom": "27.2.0",
     "markdownlint-cli2": "0.23.1"
   }
 }
