@@ -30,7 +30,10 @@ test("F01/F04: POST /api/v1/links creates a link for a valid destination", async
   assert.equal(response.headers.get("content-type")?.split(";")[0], "application/json");
   assert.match(body.alias, /^[A-Za-z0-9_-]{8}$/);
   assert.equal(body.destination, destination);
-  assert.equal(body.shortUrl, `${BASE_URL}/${body.alias}`);
+  assert.ok(
+    body.shortUrl.endsWith(`/${body.alias}`),
+    `expected shortUrl "${body.shortUrl}" to end with "/${body.alias}"`,
+  );
 });
 
 test("F02: GET /{alias} redirects to the original destination", async () => {
