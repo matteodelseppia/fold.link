@@ -17,6 +17,7 @@ test("F04: GET / serves the frontend page with the expected form", async () => {
   assert.equal(response.headers.get("content-type")?.split(";")[0], "text/html");
   assert.match(body, /id="shorten-form"/);
   assert.match(body, /id="url-input"/);
+  assert.match(body, /expire in 3 days/i);
 });
 
 test("F04: static assets referenced by the page are actually served", async () => {

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
 import link.fold.domain.CreateOutcome;
@@ -88,12 +89,12 @@ class RedisUrlMappingRepositoryTests {
   }
 
   @Test
-  void storedKeysHaveNoExpiry() {
+  void storedKeysExpireAfterTheConfiguredTtl() {
     String alias = freshAlias();
     repository.create(alias, "https://example.com/a");
 
     Long ttl = redisTemplate.getExpire(keyCodec.toKey(alias));
-    assertThat(ttl).isEqualTo(-1L);
+    assertThat(ttl).isNotNull().isPositive().isLessThanOrEqualTo(Duration.ofDays(3).toSeconds());
   }
 
   @Test

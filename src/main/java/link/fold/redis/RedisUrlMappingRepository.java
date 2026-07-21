@@ -1,5 +1,7 @@
 package link.fold.redis;
 
+import java.time.Duration;
+import link.fold.config.AppProperties;
 import link.fold.domain.CreateOutcome;
 import link.fold.domain.DestinationValidator;
 import link.fold.domain.LookupResult;
@@ -12,9 +14,10 @@ import org.springframework.stereotype.Repository;
 
 /**
  * Redis-backed {@link UrlMappingRepository}. Creation uses {@code SET NX} so concurrent requests
- * for the same alias can never overwrite each other's value, and writes carry no expiry (ADR-001:
- * mappings persist until explicitly removed). Repository failures never leak Redis exceptions,
- * hosts, or keys to callers - they collapse to {@link CreateOutcome#STORAGE_FAILURE} / {@link
+ * for the same alias can never overwrite each other's value, and writes carry the configured TTL
+ * ({@code app.redis.ttl}, defaulting to 3 days per ADR-001) so mappings expire automatically
+ * instead of accumulating forever. Repository failures never leak Redis exceptions, hosts, or keys
+ * to callers - they collapse to {@link CreateOutcome#STORAGE_FAILURE} / {@link
  * LookupResult.StorageFailure}, logged here with only the alias for diagnostics.
  */
 @Repository
@@ -25,21 +28,24 @@ public class RedisUrlMappingRepository implements UrlMappingRepository {
   private final StringRedisTemplate redisTemplate;
   private final RedisKeyCodec keyCodec;
   private final DestinationValidator destinationValidator;
+  private final Duration ttl;
 
   public RedisUrlMappingRepository(
       StringRedisTemplate redisTemplate,
       RedisKeyCodec keyCodec,
-      DestinationValidator destinationValidator) {
+      DestinationValidator destinationValidator,
+      AppProperties properties) {
     this.redisTemplate = redisTemplate;
     this.keyCodec = keyCodec;
     this.destinationValidator = destinationValidator;
+    this.ttl = properties.redis().ttl();
   }
 
   @Override
   public CreateOutcome create(String alias, String destination) {
     try {
       String key = keyCodec.toKey(alias);
-      Boolean stored = redisTemplate.opsForValue().setIfAbsent(key, destination);
+      Boolean stored = redisTemplate.opsForValue().setIfAbsent(key, destination, ttl);
       return Boolean.TRUE.equals(stored) ? CreateOutcome.STORED : CreateOutcome.COLLISION;
     } catch (DataAccessException e) {
       log.warn("Redis create failed for alias={}", alias, e);

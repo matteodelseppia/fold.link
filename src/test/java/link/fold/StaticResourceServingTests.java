@@ -46,6 +46,13 @@ class StaticResourceServingTests {
   }
 
   @Test
+  void rootPageFooterNotesTheLinkExpiryWindow() throws Exception {
+    HttpResponse<String> response = get("/");
+
+    assertThat(response.body()).containsIgnoringCase("expire in 3 days");
+  }
+
+  @Test
   void rootResponseHasARevalidatingCachePolicy() throws Exception {
     HttpResponse<String> response = get("/");
 
