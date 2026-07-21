@@ -22,6 +22,12 @@ async function createLink(url) {
   return { response, body };
 }
 
+async function getClickCount(alias) {
+  const response = await fetch(new URL(`/api/v1/links/${alias}/clicks`, BASE_URL));
+  const body = await response.text();
+  return { response, body };
+}
+
 test("F01/F04: POST /api/v1/links creates a link for a valid destination", async () => {
   const destination = `https://example.com/${crypto.randomUUID()}`;
   const { response, body } = await createLink(destination);
@@ -70,6 +76,37 @@ test("F03: GET /{alias} returns 404 for an alias that was never created", async 
 
 test("F03: GET /{alias} returns 404 for a syntactically invalid alias", async () => {
   const response = await fetch(new URL("/too-short", BASE_URL), { redirect: "manual" });
+
+  assert.equal(response.status, 404);
+});
+
+test("GET /api/v1/links/{alias}/clicks returns 0 for a link that was never clicked", async () => {
+  const destination = `https://example.com/clicks/${crypto.randomUUID()}`;
+  const { body: created } = await createLink(destination);
+
+  const { response, body } = await getClickCount(created.alias);
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type")?.split(";")[0], "application/json");
+  assert.equal(body, "0");
+});
+
+test("GET /api/v1/links/{alias}/clicks counts each redirect through the alias", async () => {
+  const destination = `https://example.com/clicks/${crypto.randomUUID()}`;
+  const { body: created } = await createLink(destination);
+
+  await fetch(new URL(`/${created.alias}`, BASE_URL), { redirect: "manual" });
+  await fetch(new URL(`/${created.alias}`, BASE_URL), { redirect: "manual" });
+  await fetch(new URL(`/${created.alias}`, BASE_URL), { redirect: "manual" });
+
+  const { response, body } = await getClickCount(created.alias);
+
+  assert.equal(response.status, 200);
+  assert.equal(body, "3");
+});
+
+test("GET /api/v1/links/{alias}/clicks returns 404 for a syntactically invalid alias", async () => {
+  const { response } = await getClickCount("too-short");
 
   assert.equal(response.status, 404);
 });

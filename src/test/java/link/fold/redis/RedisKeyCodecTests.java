@@ -43,4 +43,16 @@ class RedisKeyCodecTests {
   void rejectsNullAlias() {
     assertThatThrownBy(() -> codec.toKey(null)).isInstanceOf(IllegalArgumentException.class);
   }
+
+  @Test
+  void encodesAClickKeyWithTheConfiguredPrefixAndClicksSuffix() {
+    assertThat(codec.toClickKey("abcDEF12")).isEqualTo("v1:link:abcDEF12:clicks");
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"", "short", "waytoolongofanalias", "has space", "has:colon"})
+  void rejectsInvalidAliasesWhenBuildingAClickKey(String invalidAlias) {
+    assertThatThrownBy(() -> codec.toClickKey(invalidAlias))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
 }

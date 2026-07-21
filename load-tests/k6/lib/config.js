@@ -149,18 +149,21 @@ const THRESHOLDS_BY_ENV = {
   local: {
     redirect_duration: ["p(95)<300", "p(99)<800"],
     create_duration: ["p(95)<500", "p(99)<1200"],
+    click_count_duration: ["p(95)<300", "p(99)<800"],
     http_req_failed: ["rate<0.01"],
     checks: ["rate>0.99"],
   },
   ci: {
     redirect_duration: ["p(95)<300", "p(99)<800"],
     create_duration: ["p(95)<500", "p(99)<1200"],
+    click_count_duration: ["p(95)<300", "p(99)<800"],
     http_req_failed: ["rate<0.01"],
     checks: ["rate>0.99"],
   },
   staging: {
     redirect_duration: ["p(95)<500", "p(99)<1200"],
     create_duration: ["p(95)<800", "p(99)<1800"],
+    click_count_duration: ["p(95)<500", "p(99)<1200"],
     http_req_failed: ["rate<0.02"],
     checks: ["rate>0.98"],
   },

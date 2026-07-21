@@ -17,6 +17,12 @@ export function getAlias(alias) {
   });
 }
 
+export function getClickCount(alias) {
+  return http.get(`${BASE_URL}/api/v1/links/${alias}/clicks`, {
+    tags: { name: "click_count" },
+  });
+}
+
 export function isValidAlias(alias) {
   return typeof alias === "string" && ALIAS_PATTERN.test(alias);
 }
