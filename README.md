@@ -2,9 +2,8 @@
 
 A minimal URL shortener.
 
-![The fold.link web UI: a card with a "Destination URL" field, a "Shorten"
-button, and the resulting short link with a copy-to-clipboard
-button.](docs/assets/screenshot.png)
+<img width="642" height="394" alt="image" src="https://github.com/user-attachments/assets/f514f823-2197-4111-ac8a-31dc0e420718" />
+
 
 ## What it can do
 
