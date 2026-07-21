@@ -23,9 +23,7 @@ public class LinkClickController {
     this.linkClickService = linkClickService;
   }
 
-  @GetMapping(
-      value = "/{alias:[A-Za-z0-9_-]+}/clicks",
-      produces = MediaType.APPLICATION_JSON_VALUE)
+  @GetMapping(value = "/{alias:[A-Za-z0-9_-]+}/clicks", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Long> clicks(@PathVariable String alias) {
     return ResponseEntity.ok(linkClickService.countClicks(alias));
   }

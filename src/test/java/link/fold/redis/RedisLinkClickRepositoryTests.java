@@ -22,10 +22,10 @@ import org.springframework.test.context.DynamicPropertySource;
 
 /**
  * Contract tests for the Redis click-counter adapter, run against a real, reachable Redis (see
- * scripts/dev/redis-start.sh / the CI "redis" service) - skipped, not failed, if none is
- * reachable, matching {@code link.fold.health}'s convention. Each test class run gets its own
- * randomly generated key prefix so parallel/CI runs can never share keys, and every key created is
- * cleaned up afterward.
+ * scripts/dev/redis-start.sh / the CI "redis" service) - skipped, not failed, if none is reachable,
+ * matching {@code link.fold.health}'s convention. Each test class run gets its own randomly
+ * generated key prefix so parallel/CI runs can never share keys, and every key created is cleaned
+ * up afterward.
  */
 @SpringBootTest(webEnvironment = WebEnvironment.NONE)
 @ActiveProfiles("test")

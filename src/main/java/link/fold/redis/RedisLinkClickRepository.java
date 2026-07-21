@@ -12,10 +12,10 @@ import org.springframework.stereotype.Repository;
 
 /**
  * Redis-backed {@link LinkClickRepository}. Each click is an atomic {@code INCR} against {@code
- * v1:link:{alias}:clicks}, with its TTL refreshed to the configured mapping TTL on every
- * increment, so a click counter never outlives - or needs separate cleanup from - the mapping it
- * describes. Increment failures are logged and swallowed rather than propagated: a Redis hiccup
- * while recording a click must never turn a working redirect into an error response.
+ * v1:link:{alias}:clicks}, with its TTL refreshed to the configured mapping TTL on every increment,
+ * so a click counter never outlives - or needs separate cleanup from - the mapping it describes.
+ * Increment failures are logged and swallowed rather than propagated: a Redis hiccup while
+ * recording a click must never turn a working redirect into an error response.
  */
 @Repository
 public class RedisLinkClickRepository implements LinkClickRepository {
