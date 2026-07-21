@@ -27,4 +27,9 @@ public class RedisKeyCodec {
     }
     return keyPrefix + alias;
   }
+
+  /** Builds the click-counter key for {@code alias}, e.g. {@code v1:link:{alias}:clicks}. */
+  public String toClickKey(String alias) {
+    return toKey(alias) + ":clicks";
+  }
 }

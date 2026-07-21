@@ -15,6 +15,8 @@ button.](docs/assets/screenshot.png)
   mapping).
 - **Reject bad input** — malformed URLs and non-`http(s)` schemes are refused
   with a clear `400 VALIDATION_ERROR`; unknown aliases return `404`.
+- **Track clicks** — every redirect through a short link increments a
+  per-alias click counter, retrievable as a plain number via the API.
 - **Copy in one click** — the web UI renders the short link with a
   copy-to-clipboard button and is keyboard-accessible.
 
@@ -27,6 +29,7 @@ frontend deployment.
 | --- | --- | --- | --- |
 | `POST /api/v1/links` | Create a short link. Body: `{ "url": "<destination>" }` | `201` with `{ alias, shortUrl, destination }` | `400 VALIDATION_ERROR`, `503 STORAGE_ERROR` |
 | `GET /{alias}` | Redirect to the destination | `302 Found` with `Location` header | `404 ALIAS_NOT_FOUND`, `503 STORAGE_ERROR` |
+| `GET /api/v1/links/{alias}/clicks` | Number of times the alias has been redirected through | `200` with a bare number, e.g. `42` | `404 ALIAS_NOT_FOUND`, `503 STORAGE_ERROR` |
 | `GET /actuator/health` | Liveness/readiness (readiness fails if Redis is unavailable) | `200`/`503` | — |
 
 Every error response shares the same shape: `{ "error": "<CODE>", "message":
@@ -45,6 +48,9 @@ curl -sX POST http://localhost:8080/api/v1/links \
 curl -i http://localhost:8080/Xk7pQ2mB
 # HTTP/1.1 302 Found
 # Location: https://example.com/a/very/long/path
+
+curl http://localhost:8080/api/v1/links/Xk7pQ2mB/clicks
+# 1
 ```
 
 ## Architecture
@@ -70,7 +76,9 @@ flowchart LR
   `src/main/resources/static/`, keeping the MVP simple and cohesive.
 - **Redis** — the primary data store for URL mappings, chosen for in-memory read
   speed (fast redirects) with RDB/AOF persistence so mappings survive restarts.
-  Keys are namespaced and versioned as `v1:link:{alias}`.
+  Keys are namespaced and versioned as `v1:link:{alias}`. Click counts are
+  tracked alongside each mapping as `v1:link:{alias}:clicks`, sharing the same
+  TTL.
 - **Infisical** — secrets (e.g. Redis credentials) live in Infisical and are
   injected into the runtime environment at deploy time.
 - **Railway** — hosts the staging and production environments, pulling the
@@ -141,7 +149,7 @@ The project has four test layers, each runnable locally and in CI:
 | **Unit / integration** | Domain logic, validation, the Redis repository (against a disposable Redis), API contracts, per-profile config | `./gradlew test` |
 | **Frontend** | The static UI's submit/validation/copy behaviour (jsdom + Node test runner) | `npm run test:frontend` |
 | **System** | End-to-end create → redirect → persistence against the built container | `npm run test:system` (or `scripts/system-test.sh <image>`) |
-| **Load (k6)** | Redirect, creation, and read-heavy mixed scenarios with latency/error thresholds | `k6 run load-tests/k6/scenarios/mixed.js` |
+| **Load (k6)** | Redirect, creation, click-count reads, and a read-heavy mixed scenario, with latency/error thresholds | `k6 run load-tests/k6/scenarios/mixed.js` |
 
 Formatting is enforced with Spotless (`./gradlew spotlessCheck`) and Markdown
 with markdownlint (`npm run lint:md`).

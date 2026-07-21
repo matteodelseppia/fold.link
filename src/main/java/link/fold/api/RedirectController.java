@@ -1,6 +1,7 @@
 package link.fold.api;
 
 import java.net.URI;
+import link.fold.domain.LinkClickService;
 import link.fold.domain.LinkLookupService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,14 +21,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class RedirectController {
 
   private final LinkLookupService linkLookupService;
+  private final LinkClickService linkClickService;
 
-  public RedirectController(LinkLookupService linkLookupService) {
+  public RedirectController(
+      LinkLookupService linkLookupService, LinkClickService linkClickService) {
     this.linkLookupService = linkLookupService;
+    this.linkClickService = linkClickService;
   }
 
   @GetMapping("/{alias:[A-Za-z0-9_-]+}")
   public ResponseEntity<Void> redirect(@PathVariable String alias) {
     String destination = linkLookupService.resolve(alias);
+    linkClickService.recordClick(alias);
     return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(destination)).build();
   }
 }

@@ -1,5 +1,7 @@
 package link.fold.api;
 
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -7,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import link.fold.domain.AliasNotFoundException;
+import link.fold.domain.LinkClickService;
 import link.fold.domain.LinkLookupService;
 import link.fold.domain.StorageUnavailableException;
 import org.junit.jupiter.api.Test;
@@ -29,6 +32,8 @@ class RedirectControllerTests {
 
   @MockitoBean private LinkLookupService linkLookupService;
 
+  @MockitoBean private LinkClickService linkClickService;
+
   @Test
   void hitReturns302WithLocationHeader() throws Exception {
     when(linkLookupService.resolve("abc12345")).thenReturn("https://example.com/dest");
@@ -37,6 +42,15 @@ class RedirectControllerTests {
         .perform(get("/abc12345"))
         .andExpect(status().isFound())
         .andExpect(header().string("Location", "https://example.com/dest"));
+  }
+
+  @Test
+  void hitRecordsAClickForTheResolvedAlias() throws Exception {
+    when(linkLookupService.resolve("abc12345")).thenReturn("https://example.com/dest");
+
+    mockMvc.perform(get("/abc12345"));
+
+    verify(linkClickService).recordClick("abc12345");
   }
 
   @Test
@@ -79,6 +93,8 @@ class RedirectControllerTests {
     when(linkLookupService.resolve("unknown1")).thenThrow(new AliasNotFoundException("unknown1"));
 
     mockMvc.perform(get("/unknown1")).andExpect(status().isNotFound());
+
+    verify(linkClickService, never()).recordClick(org.mockito.ArgumentMatchers.anyString());
   }
 
   @ParameterizedTest

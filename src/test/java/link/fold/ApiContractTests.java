@@ -71,6 +71,15 @@ class ApiContractTests {
     return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
   }
 
+  private HttpResponse<String> getClickCount(String alias)
+      throws IOException, InterruptedException {
+    HttpRequest request =
+        HttpRequest.newBuilder(URI.create(baseUrl() + "/api/v1/links/" + alias + "/clicks"))
+            .GET()
+            .build();
+    return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+  }
+
   private String extractJsonField(String json, String field) {
     var matcher = java.util.regex.Pattern.compile("\"" + field + "\":\"([^\"]*)\"").matcher(json);
     if (!matcher.find()) {
@@ -116,6 +125,30 @@ class ApiContractTests {
 
     assertThat(response.statusCode()).isEqualTo(404);
     assertThat(extractJsonField(response.body(), "error")).isEqualTo("ALIAS_NOT_FOUND");
+  }
+
+  @Test
+  void clickCountStartsAtZeroAndIncrementsOnEachRedirect() throws Exception {
+    String destination = "https://example.com/clicks/" + UUID.randomUUID();
+    String alias = extractJsonField(createLink(destination).body(), "alias");
+
+    HttpResponse<String> beforeAnyClicks = getClickCount(alias);
+    assertThat(beforeAnyClicks.statusCode()).isEqualTo(200);
+    assertThat(beforeAnyClicks.body()).isEqualTo("0");
+
+    getAlias(alias);
+    getAlias(alias);
+
+    HttpResponse<String> afterTwoClicks = getClickCount(alias);
+    assertThat(afterTwoClicks.statusCode()).isEqualTo(200);
+    assertThat(afterTwoClicks.body()).isEqualTo("2");
+  }
+
+  @Test
+  void clickCountReturns404ForASyntacticallyInvalidAlias() throws Exception {
+    HttpResponse<String> response = getClickCount("too-short");
+
+    assertThat(response.statusCode()).isEqualTo(404);
   }
 
   @Test
