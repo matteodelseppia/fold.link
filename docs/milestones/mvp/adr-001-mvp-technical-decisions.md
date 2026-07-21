@@ -12,6 +12,7 @@
 | Accepted URL schemes | `http`, `https` only |
 | Alias format | 8 Base64url characters (`A–Z a–z 0–9 - _`), `SecureRandom` source |
 | Redis key | `v1:link:{alias}` → destination URL as plain UTF-8 string |
+| Mapping TTL | 3 days by default (`app.redis.ttl` / `APP_REDIS_TTL`), applied on create |
 | Build tool | Gradle Wrapper (`./gradlew`) — see [design.md §1.1](design.md) |
 | Frontend serving | Spring Boot static resources (`src/main/resources/static/`) — see [design.md §1.1](design.md) |
 

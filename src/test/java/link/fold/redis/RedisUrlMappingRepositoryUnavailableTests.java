@@ -23,13 +23,15 @@ class RedisUrlMappingRepositoryUnavailableTests {
 
   private static final AppProperties PROPERTIES =
       new AppProperties(
-          "https://fold.link", new AppProperties.Alias(8, 5), new AppProperties.Redis("v1:link:"));
+          "https://fold.link",
+          new AppProperties.Alias(8, 5),
+          new AppProperties.Redis("v1:link:", Duration.ofDays(3)));
 
   private final LettuceConnectionFactory connectionFactory = unreachableConnectionFactory();
   private final StringRedisTemplate redisTemplate = newTemplate(connectionFactory);
   private final RedisUrlMappingRepository repository =
       new RedisUrlMappingRepository(
-          redisTemplate, new RedisKeyCodec(PROPERTIES), new DestinationValidator());
+          redisTemplate, new RedisKeyCodec(PROPERTIES), new DestinationValidator(), PROPERTIES);
 
   private static LettuceConnectionFactory unreachableConnectionFactory() {
     LettuceConnectionFactory factory =

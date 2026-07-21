@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import link.fold.config.AppProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,7 +20,9 @@ class LinkLookupServiceTests {
 
   private static final AppProperties PROPERTIES =
       new AppProperties(
-          "https://fold.link", new AppProperties.Alias(8, 3), new AppProperties.Redis("v1:link:"));
+          "https://fold.link",
+          new AppProperties.Alias(8, 3),
+          new AppProperties.Redis("v1:link:", Duration.ofDays(3)));
 
   @Mock private UrlMappingRepository repository;
 

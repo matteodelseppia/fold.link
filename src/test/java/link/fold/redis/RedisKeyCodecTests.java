@@ -3,6 +3,7 @@ package link.fold.redis;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Duration;
 import link.fold.config.AppProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -12,7 +13,9 @@ class RedisKeyCodecTests {
 
   private final AppProperties properties =
       new AppProperties(
-          "https://fold.link", new AppProperties.Alias(8, 5), new AppProperties.Redis("v1:link:"));
+          "https://fold.link",
+          new AppProperties.Alias(8, 5),
+          new AppProperties.Redis("v1:link:", Duration.ofDays(3)));
 
   private final RedisKeyCodec codec = new RedisKeyCodec(properties);
 

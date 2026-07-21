@@ -4,14 +4,17 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import java.time.Duration;
 import org.hibernate.validator.constraints.URL;
+import org.hibernate.validator.constraints.time.DurationMin;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.validation.annotation.Validated;
 
 /**
  * Runtime configuration for the fold.link application, bound and validated from {@code app.*}
- * properties. Defaults for alias length and the Redis key prefix mirror ADR-001
+ * properties. Defaults for alias length, the Redis key prefix, and the mapping TTL mirror ADR-001
  * (docs/milestones/mvp/adr-001-mvp-technical-decisions.md).
  *
  * <p>{@code baseUrl} has no default: outside tests it must come from the environment ({@code
@@ -30,10 +33,11 @@ public record AppProperties(@NotBlank @URL String baseUrl, @Valid Alias alias, @
     }
   }
 
-  public record Redis(@NotBlank String keyPrefix) {
+  public record Redis(@NotBlank String keyPrefix, @NotNull @DurationMin(seconds = 1) Duration ttl) {
 
-    public Redis(@DefaultValue("v1:link:") String keyPrefix) {
+    public Redis(@DefaultValue("v1:link:") String keyPrefix, @DefaultValue("3d") Duration ttl) {
       this.keyPrefix = keyPrefix;
+      this.ttl = ttl;
     }
   }
 }

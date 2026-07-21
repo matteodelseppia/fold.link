@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
 import link.fold.config.AppProperties;
 import link.fold.domain.AliasNotFoundException;
 import link.fold.domain.InvalidDestinationException;
@@ -36,7 +37,9 @@ class LinkCreationControllerTests {
     @Bean
     AppProperties appProperties() {
       return new AppProperties(
-          "https://fold.link", new AppProperties.Alias(8, 5), new AppProperties.Redis("v1:link:"));
+          "https://fold.link",
+          new AppProperties.Alias(8, 5),
+          new AppProperties.Redis("v1:link:", Duration.ofDays(3)));
     }
   }
 

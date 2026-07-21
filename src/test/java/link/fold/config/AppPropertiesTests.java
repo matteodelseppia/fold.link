@@ -2,6 +2,7 @@ package link.fold.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -25,7 +26,8 @@ class AppPropertiesTests {
             "app.base-url=https://fold.link",
             "app.alias.length=10",
             "app.alias.retry-count=3",
-            "app.redis.key-prefix=v2:link:")
+            "app.redis.key-prefix=v2:link:",
+            "app.redis.ttl=1d")
         .run(
             context -> {
               assertThat(context).hasNotFailed();
@@ -34,6 +36,7 @@ class AppPropertiesTests {
               assertThat(props.alias().length()).isEqualTo(10);
               assertThat(props.alias().retryCount()).isEqualTo(3);
               assertThat(props.redis().keyPrefix()).isEqualTo("v2:link:");
+              assertThat(props.redis().ttl()).isEqualTo(Duration.ofDays(1));
             });
   }
 
@@ -53,6 +56,22 @@ class AppPropertiesTests {
               AppProperties props = context.getBean(AppProperties.class);
               assertThat(props.alias().retryCount()).isEqualTo(5);
             });
+  }
+
+  @Test
+  void failsWhenRedisTtlIsZero() {
+    runner
+        .withPropertyValues(
+            "app.base-url=https://fold.link", "app.redis.key-prefix=v1:link:", "app.redis.ttl=0s")
+        .run(context -> assertThat(context).hasFailed());
+  }
+
+  @Test
+  void failsWhenRedisTtlIsNegative() {
+    runner
+        .withPropertyValues(
+            "app.base-url=https://fold.link", "app.redis.key-prefix=v1:link:", "app.redis.ttl=-1d")
+        .run(context -> assertThat(context).hasFailed());
   }
 
   @Test

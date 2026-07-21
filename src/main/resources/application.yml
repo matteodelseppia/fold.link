@@ -40,6 +40,10 @@ app:
     retry-count: ${APP_ALIAS_RETRY_COUNT:5}
   redis:
     key-prefix: "${APP_REDIS_KEY_PREFIX:v1:link:}"
+    # ADR-001: mappings expire automatically after this long (Spring's
+    # simple duration format, e.g. "3d", "72h") rather than persisting
+    # forever.
+    ttl: ${APP_REDIS_TTL:3d}
 
 management:
   endpoints:
