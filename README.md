@@ -4,7 +4,6 @@ A minimal URL shortener.
 
 <img width="642" height="394" alt="image" src="https://github.com/user-attachments/assets/f514f823-2197-4111-ac8a-31dc0e420718" />
 
-
 ## What it can do
 
 - **Shorten a URL** — submit any `http`/`https` URL and receive a short link
