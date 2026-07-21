@@ -42,7 +42,7 @@ class StaticResourceServingTests {
         .get()
         .asString()
         .contains("text/html");
-    assertThat(response.body()).contains("<title>fold.link").contains("id=\"shorten-form\"");
+    assertThat(response.body()).contains("<title>foldl.ink").contains("id=\"shorten-form\"");
   }
 
   @Test
