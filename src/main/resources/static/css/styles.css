@@ -259,6 +259,100 @@ button {
   color: var(--muted);
 }
 
+#qr-btn {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  padding: 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+
+#qr-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+#qr-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#qr-btn[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+#qr-btn.is-loading {
+  cursor: progress;
+}
+
+#qr-btn.is-loading svg {
+  visibility: hidden;
+}
+
+#qr-btn.is-loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--text) 25%, transparent);
+  border-top-color: var(--accent-strong);
+  animation: qr-spin 0.7s linear infinite;
+}
+
+@keyframes qr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.qr-panel {
+  margin-top: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.qr-image {
+  width: 6.5rem;
+  height: 6.5rem;
+  flex: 0 0 auto;
+  border-radius: 6px;
+}
+
+.qr-download {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.qr-download:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
 footer {
   margin-top: 1.25rem;
   text-align: center;
@@ -269,6 +363,17 @@ footer {
 @media (max-width: 20rem) {
   .result-row {
     flex-direction: column;
+  }
+
+  .qr-panel {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #qr-btn.is-loading::after {
+    animation: none;
   }
 }
 

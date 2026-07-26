@@ -51,9 +51,15 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     // Required for spring.data.redis.lettuce.pool.* connection pooling.
     implementation 'org.apache.commons:commons-pool2'
+    // QR encoding only - core has no AWT/imageio dependency of its own, so
+    // PNG rendering is done by hand in ZxingQrCodeService.
+    implementation "com.google.zxing:core:${libs.versions.zxing.get()}"
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+    // Test-only: BufferedImageLuminanceSource/HybridBinarizer give the QR
+    // encoder tests a real decode-back-to-original-content assertion.
+    testImplementation "com.google.zxing:javase:${libs.versions.zxing.get()}"
 }
 
 tasks.named('test') {
