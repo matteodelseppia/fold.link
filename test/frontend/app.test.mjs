@@ -83,13 +83,13 @@ test("the page has a labeled input with help text and result/error landmarks", (
   assert.equal(result.hidden, true);
 });
 
-test("the footer tells the user links expire in 3 days", () => {
+test("the footer tells the user links expire in 30 days", () => {
   const dom = buildDom();
   const { document } = elements(dom);
 
   const footer = document.querySelector("footer");
   assert.ok(footer, "expected a <footer> element");
-  assert.match(footer.textContent, /expire in 3 days/i);
+  assert.match(footer.textContent, /expire in 30 days/i);
 });
 
 // --- MVP-085: client-side validation -------------------------------------

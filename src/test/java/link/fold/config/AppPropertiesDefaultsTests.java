@@ -25,6 +25,6 @@ class AppPropertiesDefaultsTests {
     assertThat(appProperties.alias().length()).isEqualTo(8);
     assertThat(appProperties.alias().retryCount()).isEqualTo(5);
     assertThat(appProperties.redis().keyPrefix()).isEqualTo("v1:link:");
-    assertThat(appProperties.redis().ttl()).isEqualTo(Duration.ofDays(3));
+    assertThat(appProperties.redis().ttl()).isEqualTo(Duration.ofDays(30));
   }
 }

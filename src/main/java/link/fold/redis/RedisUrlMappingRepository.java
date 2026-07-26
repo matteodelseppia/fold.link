@@ -15,10 +15,10 @@ import org.springframework.stereotype.Repository;
 /**
  * Redis-backed {@link UrlMappingRepository}. Creation uses {@code SET NX} so concurrent requests
  * for the same alias can never overwrite each other's value, and writes carry the configured TTL
- * ({@code app.redis.ttl}, defaulting to 3 days per ADR-001) so mappings expire automatically
- * instead of accumulating forever. Repository failures never leak Redis exceptions, hosts, or keys
- * to callers - they collapse to {@link CreateOutcome#STORAGE_FAILURE} / {@link
- * LookupResult.StorageFailure}, logged here with only the alias for diagnostics.
+ * ({@code app.redis.ttl}, defaulting to 30 days) so mappings expire automatically instead of
+ * accumulating forever. Repository failures never leak Redis exceptions, hosts, or keys to callers
+ * - they collapse to {@link CreateOutcome#STORAGE_FAILURE} / {@link LookupResult.StorageFailure},
+ * logged here with only the alias for diagnostics.
  */
 @Repository
 public class RedisUrlMappingRepository implements UrlMappingRepository {

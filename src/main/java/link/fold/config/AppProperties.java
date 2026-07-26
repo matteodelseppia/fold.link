@@ -14,8 +14,8 @@ import org.springframework.validation.annotation.Validated;
 
 /**
  * Runtime configuration for the fold.link application, bound and validated from {@code app.*}
- * properties. Defaults for alias length, the Redis key prefix, and the mapping TTL mirror ADR-001
- * (docs/milestones/mvp/adr-001-mvp-technical-decisions.md).
+ * properties. Defaults for alias length and the Redis key prefix mirror ADR-001
+ * (docs/milestones/mvp/adr-001-mvp-technical-decisions.md); the mapping TTL default is 30 days.
  *
  * <p>{@code baseUrl} has no default: outside tests it must come from the environment ({@code
  * APP_BASE_URL}), and startup fails with a clear validation error if it is missing or not a
@@ -35,7 +35,7 @@ public record AppProperties(@NotBlank @URL String baseUrl, @Valid Alias alias, @
 
   public record Redis(@NotBlank String keyPrefix, @NotNull @DurationMin(seconds = 1) Duration ttl) {
 
-    public Redis(@DefaultValue("v1:link:") String keyPrefix, @DefaultValue("3d") Duration ttl) {
+    public Redis(@DefaultValue("v1:link:") String keyPrefix, @DefaultValue("30d") Duration ttl) {
       this.keyPrefix = keyPrefix;
       this.ttl = ttl;
     }
