@@ -12,8 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.serializer.RedisSerializer;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 /**
  * Points the repository at an address nothing listens on (no Spring context needed - just the plain
@@ -29,14 +28,10 @@ class RedisUrlMappingRepositoryUnavailableTests {
           new AppProperties.Redis("v1:link:", Duration.ofDays(3)));
 
   private final LettuceConnectionFactory connectionFactory = unreachableConnectionFactory();
-  private final RedisTemplate<String, byte[]> redisTemplate = newTemplate(connectionFactory);
+  private final StringRedisTemplate redisTemplate = newTemplate(connectionFactory);
   private final RedisUrlMappingRepository repository =
       new RedisUrlMappingRepository(
-          redisTemplate,
-          new RedisKeyCodec(PROPERTIES),
-          new DestinationCodec(),
-          new DestinationValidator(),
-          PROPERTIES);
+          redisTemplate, new RedisKeyCodec(PROPERTIES), new DestinationValidator(), PROPERTIES);
 
   private static LettuceConnectionFactory unreachableConnectionFactory() {
     LettuceConnectionFactory factory =
@@ -47,11 +42,8 @@ class RedisUrlMappingRepositoryUnavailableTests {
     return factory;
   }
 
-  private static RedisTemplate<String, byte[]> newTemplate(LettuceConnectionFactory factory) {
-    RedisTemplate<String, byte[]> template = new RedisTemplate<>();
-    template.setConnectionFactory(factory);
-    template.setKeySerializer(RedisSerializer.string());
-    template.setValueSerializer(RedisSerializer.byteArray());
+  private static StringRedisTemplate newTemplate(LettuceConnectionFactory factory) {
+    StringRedisTemplate template = new StringRedisTemplate(factory);
     template.afterPropertiesSet();
     return template;
   }
