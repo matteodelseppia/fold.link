@@ -17,8 +17,10 @@
   const qrPanel = document.getElementById("qr-panel");
   const qrImage = document.getElementById("qr-image");
   const qrDownload = document.getElementById("qr-download");
+  const luckyBtn = document.getElementById("lucky-btn");
 
   const SCHEME_PATTERN = /^https?:\/\//i;
+  const URL_IN_TEXT_PATTERN = /https?:\/\/[^\s<>"']+/gi;
 
   // Messages for API error codes (ADR-001) that aren't already carried by the
   // server's own VALIDATION_ERROR message. Deliberately generic - never echo
@@ -276,7 +278,52 @@
     qrBtn.setAttribute("aria-label", showing ? "Hide QR code" : "Show QR code");
   });
 
+  function extractFirstUrl(text) {
+    const matches = (text || "").match(URL_IN_TEXT_PATTERN);
+    if (!matches) {
+      return null;
+    }
+    // Clipboard text often carries a URL embedded in a sentence or markdown
+    // link - trim trailing punctuation that isn't part of the URL itself.
+    const candidate = matches[0].replace(/[).,;:!?'"]+$/, "");
+    try {
+      const parsed = new URL(candidate);
+      return parsed.protocol === "http:" || parsed.protocol === "https:" ? candidate : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function feelingLucky() {
+    // One-shot per page load: disabled immediately so repeated/rapid clicks
+    // can't fire overlapping clipboard reads or submissions.
+    luckyBtn.disabled = true;
+
+    if (!navigator.clipboard || typeof navigator.clipboard.readText !== "function") {
+      return;
+    }
+
+    let text;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      // Permission denied or unsupported context - fail silently.
+      return;
+    }
+
+    const url = extractFirstUrl(text);
+    if (!url) {
+      return;
+    }
+
+    input.value = url;
+    clearError();
+    submit(url);
+  }
+
+  luckyBtn.addEventListener("click", feelingLucky);
+
   // Exposed only so the Node/jsdom test suite can exercise the pure logic
   // directly; harmless in production, never read by the app itself.
-  window.__foldLinkApp = { validate, messageForApiError };
+  window.__foldLinkApp = { validate, messageForApiError, extractFirstUrl };
 })();
