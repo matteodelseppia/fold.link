@@ -6,9 +6,9 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
+import link.fold.config.AppProperties;
 import link.fold.domain.CreateOutcome;
 import link.fold.domain.LookupResult;
 import org.junit.jupiter.api.AfterEach;
@@ -54,6 +54,7 @@ class RedisUrlMappingRepositoryTests {
   @Autowired private RedisUrlMappingRepository repository;
   @Autowired private RedisKeyCodec keyCodec;
   @Autowired private StringRedisTemplate redisTemplate;
+  @Autowired private AppProperties appProperties;
 
   @AfterEach
   void cleanUpTestKeys() {
@@ -94,7 +95,10 @@ class RedisUrlMappingRepositoryTests {
     repository.create(alias, "https://example.com/a");
 
     Long ttl = redisTemplate.getExpire(keyCodec.toKey(alias));
-    assertThat(ttl).isNotNull().isPositive().isLessThanOrEqualTo(Duration.ofDays(3).toSeconds());
+    assertThat(ttl)
+        .isNotNull()
+        .isPositive()
+        .isLessThanOrEqualTo(appProperties.redis().ttl().toSeconds());
   }
 
   @Test
