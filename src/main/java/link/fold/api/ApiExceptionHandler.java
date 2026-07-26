@@ -6,6 +6,7 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import link.fold.domain.AliasNotFoundException;
 import link.fold.domain.InvalidDestinationException;
+import link.fold.domain.QrGenerationException;
 import link.fold.domain.StorageUnavailableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -115,6 +116,14 @@ public class ApiExceptionHandler {
     log.warn("Storage unavailable: {}", e.getMessage());
     return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
         .body(new ErrorResponse("STORAGE_ERROR", "The service is temporarily unavailable"));
+  }
+
+  @ExceptionHandler(QrGenerationException.class)
+  public ResponseEntity<ErrorResponse> handleQrGeneration(QrGenerationException e) {
+    log.error("QR generation failed", e);
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .body(
+            new ErrorResponse("QR_GENERATION_ERROR", "Unable to generate a QR code for this link"));
   }
 
   @ExceptionHandler(Exception.class)

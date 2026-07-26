@@ -4,6 +4,7 @@ springBoot = "4.1.0"
 springDependencyManagement = "1.1.7"
 spotless = "7.0.4"
 googleJavaFormat = "1.28.0"
+zxing = "3.5.3"
 
 [plugins]
 springBoot = { id = "org.springframework.boot", version.ref = "springBoot" }

@@ -49,8 +49,22 @@
                 <path fill="currentColor" d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"></path>
               </svg>
             </button>
+            <button type="button" id="qr-btn" disabled aria-pressed="false" aria-label="Show QR code">
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M1 1h6v6H1V1Zm1.5 1.5v3h3v-3h-3ZM9 1h6v6H9V1Zm1.5 1.5v3h3v-3h-3ZM1 9h6v6H1V9Zm1.5 1.5v3h3v-3h-3ZM9 9h1.5v1.5H9V9Zm3 0H14v1.5h-1.5V9ZM9 12h1.5v3H9v-3Zm4.5 0H15v1.5h-1.5V12ZM11 14h1.5v1.5H11V14Z"
+                ></path>
+              </svg>
+            </button>
           </div>
           <p id="copy-status" class="copy-status" aria-live="polite"></p>
+          <p id="qr-status" class="copy-status" aria-live="polite"></p>
+
+          <div id="qr-panel" class="qr-panel" hidden>
+            <img id="qr-image" class="qr-image" alt="QR code for the short link" width="160" height="160" />
+            <a id="qr-download" class="qr-download" download>Download PNG</a>
+          </div>
         </section>
       </main>
 

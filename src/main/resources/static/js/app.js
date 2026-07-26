@@ -12,6 +12,11 @@
   const copyStatus = document.getElementById("copy-status");
   const copyIcon = copyBtn.querySelector(".icon-copy");
   const checkIcon = copyBtn.querySelector(".icon-check");
+  const qrBtn = document.getElementById("qr-btn");
+  const qrStatus = document.getElementById("qr-status");
+  const qrPanel = document.getElementById("qr-panel");
+  const qrImage = document.getElementById("qr-image");
+  const qrDownload = document.getElementById("qr-download");
 
   const SCHEME_PATTERN = /^https?:\/\//i;
 
@@ -24,6 +29,9 @@
   const FALLBACK_MESSAGE = "Something went wrong. Please try again.";
 
   let pending = false;
+  let currentAlias = null;
+  let qrRequested = false;
+  let qrRequestGeneration = 0;
 
   function validate(value) {
     const trimmed = (value || "").trim();
@@ -63,12 +71,30 @@
     input.setAttribute("aria-invalid", "false");
   }
 
+  function resetQr() {
+    currentAlias = null;
+    qrRequested = false;
+    // Invalidates any in-flight request's load/error handlers below - clearing
+    // qrImage's src while a load is pending fires a stale "error" event that
+    // must not be allowed to touch a since-replaced result.
+    qrRequestGeneration += 1;
+    qrPanel.hidden = true;
+    qrImage.removeAttribute("src");
+    qrDownload.removeAttribute("href");
+    qrStatus.textContent = "";
+    qrBtn.classList.remove("is-loading");
+    qrBtn.setAttribute("aria-pressed", "false");
+    qrBtn.setAttribute("aria-label", "Show QR code");
+  }
+
   function hideResult() {
     result.hidden = true;
     resultLink.textContent = "";
     resultLink.removeAttribute("href");
     copyBtn.disabled = true;
     copyStatus.textContent = "";
+    resetQr();
+    qrBtn.disabled = true;
   }
 
   function showResult(data) {
@@ -77,6 +103,9 @@
     result.hidden = false;
     copyBtn.disabled = false;
     copyStatus.textContent = "";
+    resetQr();
+    currentAlias = data.alias;
+    qrBtn.disabled = false;
   }
 
   function setPending(isPending) {
@@ -187,6 +216,64 @@
     } catch {
       copyStatus.textContent = "Copy failed — select the link text above and copy manually.";
     }
+  });
+
+  function requestQr() {
+    const alias = currentAlias;
+    const generation = qrRequestGeneration;
+    qrRequested = true;
+    qrBtn.disabled = true;
+    qrBtn.classList.add("is-loading");
+    qrStatus.textContent = "";
+
+    function cleanup() {
+      qrImage.removeEventListener("load", onLoad);
+      qrImage.removeEventListener("error", onError);
+    }
+
+    function onLoad() {
+      cleanup();
+      if (generation !== qrRequestGeneration) {
+        return;
+      }
+      qrBtn.disabled = false;
+      qrBtn.classList.remove("is-loading");
+      qrPanel.hidden = false;
+      qrBtn.setAttribute("aria-pressed", "true");
+      qrBtn.setAttribute("aria-label", "Hide QR code");
+      qrDownload.setAttribute("href", qrImage.src);
+      qrDownload.setAttribute("download", `foldl-ink-${alias}.png`);
+    }
+
+    function onError() {
+      cleanup();
+      if (generation !== qrRequestGeneration) {
+        return;
+      }
+      qrRequested = false;
+      qrBtn.disabled = false;
+      qrBtn.classList.remove("is-loading");
+      qrStatus.textContent = "Couldn't generate a QR code — try again.";
+    }
+
+    qrImage.addEventListener("load", onLoad);
+    qrImage.addEventListener("error", onError);
+    qrImage.src = `/api/v1/links/${alias}/qr`;
+  }
+
+  qrBtn.addEventListener("click", () => {
+    if (!currentAlias) {
+      return;
+    }
+    if (!qrRequested) {
+      requestQr();
+      return;
+    }
+
+    const showing = qrPanel.hidden;
+    qrPanel.hidden = !showing;
+    qrBtn.setAttribute("aria-pressed", String(showing));
+    qrBtn.setAttribute("aria-label", showing ? "Hide QR code" : "Show QR code");
   });
 
   // Exposed only so the Node/jsdom test suite can exercise the pure logic

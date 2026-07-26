@@ -23,6 +23,15 @@ export function getClickCount(alias) {
   });
 }
 
+export function getQrCode(alias) {
+  return http.get(`${BASE_URL}/api/v1/links/${alias}/qr`, {
+    // PNG bytes: k6 mangles binary bodies read as text (the default), so the
+    // response body must come back as an ArrayBuffer instead.
+    responseType: "binary",
+    tags: { name: "qr_code" },
+  });
+}
+
 export function isValidAlias(alias) {
   return typeof alias === "string" && ALIAS_PATTERN.test(alias);
 }

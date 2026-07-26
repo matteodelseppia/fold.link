@@ -45,7 +45,37 @@ function elements(dom) {
     resultLink: document.getElementById("result-link"),
     copyBtn: document.getElementById("copy-btn"),
     copyStatus: document.getElementById("copy-status"),
+    qrBtn: document.getElementById("qr-btn"),
+    qrStatus: document.getElementById("qr-status"),
+    qrPanel: document.getElementById("qr-panel"),
+    qrImage: document.getElementById("qr-image"),
+    qrDownload: document.getElementById("qr-download"),
   };
+}
+
+// jsdom never actually loads <img> resources, so a "click the QR button, then
+// resolve/fail the load" test drives it by hand: wait for the src to be set
+// (the real signal that a request was made), then dispatch the load/error
+// event the browser would have fired itself.
+async function waitForQrSrc(dom) {
+  const { qrImage } = elements(dom);
+  for (let i = 0; i < 50; i++) {
+    if (qrImage.getAttribute("src")) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error("timed out waiting for #qr-image to get a src");
+}
+
+function fireQrLoad(dom) {
+  const { qrImage } = elements(dom);
+  qrImage.dispatchEvent(new dom.window.Event("load"));
+}
+
+function fireQrError(dom) {
+  const { qrImage } = elements(dom);
+  qrImage.dispatchEvent(new dom.window.Event("error"));
 }
 
 function submitForm(dom, url) {
@@ -504,7 +534,7 @@ test("client and server validation errors move focus to the input", async () => 
   assert.equal(document.activeElement, input);
 });
 
-test("tab order follows input, submit button, result link, then copy button", async () => {
+test("tab order follows input, submit button, result link, copy button, then QR button", async () => {
   const dom = buildDom({
     fetchImpl: async () =>
       jsonResponse(201, {
@@ -513,7 +543,7 @@ test("tab order follows input, submit button, result link, then copy button", as
         destination: "https://example.com",
       }),
   });
-  const { document, input, submitBtn, resultLink, copyBtn } = elements(dom);
+  const { document, input, submitBtn, resultLink, copyBtn, qrBtn } = elements(dom);
 
   submitForm(dom, "https://example.com");
   await flush();
@@ -522,5 +552,210 @@ test("tab order follows input, submit button, result link, then copy button", as
     document.querySelectorAll("input, button, a[href]"),
   ).filter((el) => !el.hasAttribute("disabled") && !el.closest("[hidden]"));
 
-  assert.deepEqual(focusable, [input, submitBtn, resultLink, copyBtn]);
+  assert.deepEqual(focusable, [input, submitBtn, resultLink, copyBtn, qrBtn]);
+});
+
+// --- QR code (optional, generated on demand) -------------------------------
+
+test("the QR button is disabled until a short URL exists", async () => {
+  const dom = buildDom({
+    fetchImpl: async () =>
+      jsonResponse(201, {
+        alias: "abc12345",
+        shortUrl: "http://localhost/abc12345",
+        destination: "https://example.com",
+      }),
+  });
+  const { qrBtn } = elements(dom);
+
+  assert.equal(qrBtn.disabled, true);
+
+  submitForm(dom, "https://example.com");
+  await flush();
+
+  assert.equal(qrBtn.disabled, false);
+});
+
+test("the QR panel and download link are hidden until requested", async () => {
+  const dom = buildDom({
+    fetchImpl: async () =>
+      jsonResponse(201, {
+        alias: "abc12345",
+        shortUrl: "http://localhost/abc12345",
+        destination: "https://example.com",
+      }),
+  });
+  const { qrPanel, qrDownload } = elements(dom);
+
+  submitForm(dom, "https://example.com");
+  await flush();
+
+  assert.equal(qrPanel.hidden, true);
+  assert.equal(qrDownload.hasAttribute("href"), false);
+});
+
+test("clicking the QR button requests the alias's own QR endpoint, not before", async () => {
+  const dom = buildDom({
+    fetchImpl: async () =>
+      jsonResponse(201, {
+        alias: "abc12345",
+        shortUrl: "http://localhost/abc12345",
+        destination: "https://example.com",
+      }),
+  });
+  const { qrBtn, qrImage } = elements(dom);
+
+  submitForm(dom, "https://example.com");
+  await flush();
+  assert.equal(qrImage.hasAttribute("src"), false);
+
+  qrBtn.dispatchEvent(new dom.window.Event("click", { bubbles: true }));
+  await waitForQrSrc(dom);
+
+  assert.equal(qrImage.getAttribute("src"), "/api/v1/links/abc12345/qr");
+  assert.equal(qrBtn.disabled, true);
+  assert.equal(qrBtn.classList.contains("is-loading"), true);
+});
+
+test("a successful QR load reveals the panel and enables the download link", async () => {
+  const dom = buildDom({
+    fetchImpl: async () =>
+      jsonResponse(201, {
+        alias: "abc12345",
+        shortUrl: "http://localhost/abc12345",
+        destination: "https://example.com",
+      }),
+  });
+  const { qrBtn, qrPanel, qrDownload } = elements(dom);
+
+  submitForm(dom, "https://example.com");
+  await flush();
+  qrBtn.dispatchEvent(new dom.window.Event("click", { bubbles: true }));
+  await waitForQrSrc(dom);
+  fireQrLoad(dom);
+
+  assert.equal(qrPanel.hidden, false);
+  assert.equal(qrBtn.disabled, false);
+  assert.equal(qrBtn.classList.contains("is-loading"), false);
+  assert.equal(qrBtn.getAttribute("aria-pressed"), "true");
+  assert.equal(qrDownload.getAttribute("download"), "foldl-ink-abc12345.png");
+  assert.match(qrDownload.getAttribute("href"), /\/api\/v1\/links\/abc12345\/qr$/);
+});
+
+test("clicking the QR button again toggles visibility without a second request", async () => {
+  const dom = buildDom({
+    fetchImpl: async () =>
+      jsonResponse(201, {
+        alias: "abc12345",
+        shortUrl: "http://localhost/abc12345",
+        destination: "https://example.com",
+      }),
+  });
+  const { qrBtn, qrPanel, qrImage } = elements(dom);
+
+  submitForm(dom, "https://example.com");
+  await flush();
+  qrBtn.dispatchEvent(new dom.window.Event("click", { bubbles: true }));
+  await waitForQrSrc(dom);
+  fireQrLoad(dom);
+  const srcAfterFirstLoad = qrImage.getAttribute("src");
+
+  qrBtn.dispatchEvent(new dom.window.Event("click", { bubbles: true }));
+  assert.equal(qrPanel.hidden, true);
+  assert.equal(qrBtn.getAttribute("aria-pressed"), "false");
+  assert.equal(qrBtn.classList.contains("is-loading"), false);
+
+  qrBtn.dispatchEvent(new dom.window.Event("click", { bubbles: true }));
+  assert.equal(qrPanel.hidden, false);
+  assert.equal(qrBtn.getAttribute("aria-pressed"), "true");
+  assert.equal(qrImage.getAttribute("src"), srcAfterFirstLoad);
+});
+
+test("a failed QR load shows a retry-friendly message and re-enables the button", async () => {
+  const dom = buildDom({
+    fetchImpl: async () =>
+      jsonResponse(201, {
+        alias: "abc12345",
+        shortUrl: "http://localhost/abc12345",
+        destination: "https://example.com",
+      }),
+  });
+  const { qrBtn, qrPanel, qrStatus } = elements(dom);
+
+  submitForm(dom, "https://example.com");
+  await flush();
+  qrBtn.dispatchEvent(new dom.window.Event("click", { bubbles: true }));
+  await waitForQrSrc(dom);
+  fireQrError(dom);
+
+  assert.match(qrStatus.textContent, /couldn't generate/i);
+  assert.equal(qrBtn.disabled, false);
+  assert.equal(qrBtn.classList.contains("is-loading"), false);
+  assert.equal(qrPanel.hidden, true);
+
+  // The failure must be retryable, not a dead end.
+  qrBtn.dispatchEvent(new dom.window.Event("click", { bubbles: true }));
+  await waitForQrSrc(dom);
+  assert.equal(qrBtn.classList.contains("is-loading"), true);
+});
+
+test("a new successful submission resets any previous QR state", async () => {
+  let response = jsonResponse(201, {
+    alias: "first111",
+    shortUrl: "http://localhost/first111",
+    destination: "https://example.com/one",
+  });
+  const dom = buildDom({ fetchImpl: async () => response });
+  const { qrBtn, qrPanel, qrImage, qrStatus } = elements(dom);
+
+  submitForm(dom, "https://example.com/one");
+  await flush();
+  qrBtn.dispatchEvent(new dom.window.Event("click", { bubbles: true }));
+  await waitForQrSrc(dom);
+  fireQrLoad(dom);
+  assert.equal(qrPanel.hidden, false);
+
+  response = jsonResponse(201, {
+    alias: "second22",
+    shortUrl: "http://localhost/second22",
+    destination: "https://example.com/two",
+  });
+  submitForm(dom, "https://example.com/two");
+  await flush();
+
+  assert.equal(qrPanel.hidden, true);
+  assert.equal(qrImage.hasAttribute("src"), false);
+  assert.equal(qrStatus.textContent, "");
+  assert.equal(qrBtn.getAttribute("aria-pressed"), "false");
+});
+
+test("a stale QR load firing after a new submission is ignored", async () => {
+  let response = jsonResponse(201, {
+    alias: "first111",
+    shortUrl: "http://localhost/first111",
+    destination: "https://example.com/one",
+  });
+  const dom = buildDom({ fetchImpl: async () => response });
+  const { qrBtn, qrPanel, qrImage, qrStatus } = elements(dom);
+
+  submitForm(dom, "https://example.com/one");
+  await flush();
+  qrBtn.dispatchEvent(new dom.window.Event("click", { bubbles: true }));
+  await waitForQrSrc(dom);
+
+  // A second shorten arrives while the first QR request is still in flight;
+  // clearing #qr-image's src for the new result fires a stale "error" for
+  // the *first* request, which must not clobber the fresh result's state.
+  response = jsonResponse(201, {
+    alias: "second22",
+    shortUrl: "http://localhost/second22",
+    destination: "https://example.com/two",
+  });
+  submitForm(dom, "https://example.com/two");
+  await flush();
+  fireQrError(dom);
+
+  assert.equal(qrStatus.textContent, "");
+  assert.equal(qrPanel.hidden, true);
+  assert.equal(qrBtn.disabled, false);
 });

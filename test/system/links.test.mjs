@@ -28,6 +28,14 @@ async function getClickCount(alias) {
   return { response, body };
 }
 
+async function getQrCode(alias) {
+  const response = await fetch(new URL(`/api/v1/links/${alias}/qr`, BASE_URL));
+  const body = Buffer.from(await response.arrayBuffer());
+  return { response, body };
+}
+
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
 test("F01/F04: POST /api/v1/links creates a link for a valid destination", async () => {
   const destination = `https://example.com/${crypto.randomUUID()}`;
   const { response, body } = await createLink(destination);
@@ -179,6 +187,56 @@ test("POST /api/v1/links rejects an oversized destination with 400", async () =>
 
   assert.equal(response.status, 400);
   assert.equal(body.error, "VALIDATION_ERROR");
+});
+
+test("GET /api/v1/links/{alias}/qr returns a PNG QR code for a freshly created link", async () => {
+  const destination = `https://example.com/qr/${crypto.randomUUID()}`;
+  const { body: created } = await createLink(destination);
+
+  const { response, body } = await getQrCode(created.alias);
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type")?.split(";")[0], "image/png");
+  assert.ok(body.subarray(0, 8).equals(PNG_MAGIC), "expected the response body to start with the PNG magic bytes");
+});
+
+test("GET /api/v1/links/{alias}/qr encodes the alias's own short link, not the destination", async () => {
+  const destinationA = `https://example.com/qr/${crypto.randomUUID()}`;
+  const destinationB = `https://example.com/qr/${crypto.randomUUID()}`;
+  const { body: createdA } = await createLink(destinationA);
+  const { body: createdB } = await createLink(destinationB);
+
+  const { body: qrA } = await getQrCode(createdA.alias);
+  const { body: qrB } = await getQrCode(createdB.alias);
+
+  // Two distinct aliases must never encode to the same image bytes.
+  assert.notEqual(qrA.toString("base64"), qrB.toString("base64"));
+});
+
+test("GET /api/v1/links/{alias}/qr returns 404 for an alias that was never created", async () => {
+  const { response, body } = await getQrCode("aaaaaaaa");
+  const json = JSON.parse(body.toString("utf8"));
+
+  assert.equal(response.status, 404);
+  assert.equal(json.error, "ALIAS_NOT_FOUND");
+});
+
+test("GET /api/v1/links/{alias}/qr returns 404 for a syntactically invalid alias", async () => {
+  const { response } = await getQrCode("too-short");
+
+  assert.equal(response.status, 404);
+});
+
+test("GET /api/v1/links/{alias}/qr never counts as a click on the alias", async () => {
+  const destination = `https://example.com/qr-clicks/${crypto.randomUUID()}`;
+  const { body: created } = await createLink(destination);
+
+  await getQrCode(created.alias);
+  await getQrCode(created.alias);
+  await getQrCode(created.alias);
+
+  const { body } = await getClickCount(created.alias);
+  assert.equal(body, "0");
 });
 
 test("repeated creation of the same destination yields independent, working aliases", async () => {

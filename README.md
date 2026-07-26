@@ -17,6 +17,9 @@ A minimal URL shortener.
   per-alias click counter, retrievable as a plain number via the API.
 - **Copy in one click** — the web UI renders the short link with a
   copy-to-clipboard button and is keyboard-accessible.
+- **Optional QR code** — a QR code encoding the short link is generated on
+  request, not up front: the web UI only fetches it when the QR button next
+  to Copy is clicked. Requesting the code never counts as a click.
 
 The web UI is served by the backend itself at `/`. There is no separate
 frontend deployment.
@@ -28,6 +31,7 @@ frontend deployment.
 | `POST /api/v1/links` | Create a short link. Body: `{ "url": "<destination>" }` | `201` with `{ alias, shortUrl, destination }` | `400 VALIDATION_ERROR`, `503 STORAGE_ERROR` |
 | `GET /{alias}` | Redirect to the destination | `302 Found` with `Location` header | `404 ALIAS_NOT_FOUND`, `503 STORAGE_ERROR` |
 | `GET /api/v1/links/{alias}/clicks` | Number of times the alias has been redirected through | `200` with a bare number, e.g. `42` | `404 ALIAS_NOT_FOUND`, `503 STORAGE_ERROR` |
+| `GET /api/v1/links/{alias}/qr` | A QR code encoding the alias's own short link. Generated on request, not cached server-side; never counts as a click. | `200` with an `image/png` body | `404 ALIAS_NOT_FOUND`, `503 STORAGE_ERROR`, `500 QR_GENERATION_ERROR` |
 | `GET /actuator/health` | Liveness/readiness (readiness fails if Redis is unavailable) | `200`/`503` | — |
 
 Every error response shares the same shape: `{ "error": "<CODE>", "message":
@@ -49,6 +53,9 @@ curl -i http://localhost:8080/Xk7pQ2mB
 
 curl http://localhost:8080/api/v1/links/Xk7pQ2mB/clicks
 # 1
+
+curl -o qr.png http://localhost:8080/api/v1/links/Xk7pQ2mB/qr
+# writes a 320x320 PNG QR code encoding http://localhost:8080/Xk7pQ2mB
 ```
 
 ## Architecture
@@ -76,7 +83,8 @@ flowchart LR
   speed (fast redirects) with RDB/AOF persistence so mappings survive restarts.
   Keys are namespaced and versioned as `v1:link:{alias}`. Click counts are
   tracked alongside each mapping as `v1:link:{alias}:clicks`, sharing the same
-  TTL.
+  TTL. QR codes are not stored in Redis at all - encoding a short, fixed-length
+  URL is cheap enough to redo on every request.
 - **Infisical** — secrets (e.g. Redis credentials) live in Infisical and are
   injected into the runtime environment at deploy time.
 - **Railway** — hosts the staging and production environments, pulling the
