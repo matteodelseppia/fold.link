@@ -97,6 +97,24 @@ class RedirectControllerTests {
     verify(linkClickService, never()).recordClick(org.mockito.ArgumentMatchers.anyString());
   }
 
+  @Test
+  void unknownAliasRequestedByABrowserGetsTheFriendly404Page() throws Exception {
+    when(linkLookupService.resolve("unknown1")).thenThrow(new AliasNotFoundException("unknown1"));
+
+    mockMvc
+        .perform(get("/unknown1").header("Accept", "text/html,application/xhtml+xml"))
+        .andExpect(status().isNotFound())
+        .andExpect(
+            result ->
+                org.assertj.core.api.Assertions.assertThat(result.getResponse().getContentType())
+                    .contains("text/html"))
+        .andExpect(
+            result ->
+                org.assertj.core.api.Assertions.assertThat(
+                        result.getResponse().getContentAsString())
+                    .contains("This link doesn't exist"));
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"short", "waytoolongofanalias"})
   void syntacticallyInvalidAliasLengthReturns404(String alias) throws Exception {

@@ -33,6 +33,16 @@ class StaticResourceServingTests {
     return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
   }
 
+  private HttpResponse<String> getAcceptingHtml(String path)
+      throws IOException, InterruptedException {
+    HttpRequest request =
+        HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+            .header("Accept", "text/html,application/xhtml+xml")
+            .GET()
+            .build();
+    return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+  }
+
   @Test
   void rootServesTheFrontendPage() throws Exception {
     HttpResponse<String> response = get("/");
@@ -97,5 +107,29 @@ class StaticResourceServingTests {
     HttpResponse<String> response = get("/api/does-not-exist");
 
     assertThat(response.statusCode()).isEqualTo(404);
+  }
+
+  @Test
+  void unmappedPathRequestedByABrowserGetsTheFriendly404Page() throws Exception {
+    HttpResponse<String> response = getAcceptingHtml("/api/does-not-exist");
+
+    assertThat(response.statusCode()).isEqualTo(404);
+    assertThat(response.headers().firstValue("Content-Type"))
+        .get()
+        .asString()
+        .contains("text/html");
+    assertThat(response.body()).contains("This link doesn't exist");
+  }
+
+  @Test
+  void unknownAliasRequestedByABrowserGetsTheFriendly404Page() throws Exception {
+    HttpResponse<String> response = getAcceptingHtml("/not-a-real-alias-xyz");
+
+    assertThat(response.statusCode()).isEqualTo(404);
+    assertThat(response.headers().firstValue("Content-Type"))
+        .get()
+        .asString()
+        .contains("text/html");
+    assertThat(response.body()).contains("This link doesn't exist");
   }
 }

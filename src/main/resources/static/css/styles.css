@@ -271,3 +271,43 @@ footer {
     flex-direction: column;
   }
 }
+
+.not-found {
+  text-align: center;
+}
+
+.not-found-code {
+  margin: 0;
+  font-size: clamp(2.5rem, 10vw, 3.5rem);
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.03em;
+}
+
+.not-found-title {
+  margin: 0.25rem 0 0;
+  font-size: clamp(1.1rem, 4vw, 1.35rem);
+}
+
+.not-found-message {
+  margin: 0.6rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.not-found-home {
+  display: inline-block;
+  margin-top: 1.25rem;
+  min-height: 2.75rem;
+  padding: 0.7rem 1.25rem;
+  font-weight: 600;
+  color: #05261d;
+  background: var(--accent);
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.not-found-home:hover {
+  background: var(--accent-strong);
+}
