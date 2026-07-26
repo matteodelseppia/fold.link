@@ -70,6 +70,7 @@ function elements(dom) {
   return {
     document,
     form: document.getElementById("shorten-form"),
+    luckyBtn: document.getElementById("lucky-btn"),
     input: document.getElementById("url-input"),
     submitBtn: document.getElementById("submit-btn"),
     formError: document.getElementById("form-error"),
@@ -566,7 +567,7 @@ test("client and server validation errors move focus to the input", async () => 
   assert.equal(document.activeElement, input);
 });
 
-test("tab order follows input, submit button, result link, copy button, then QR button", async () => {
+test("tab order follows the lucky button, input, submit button, result link, copy button, then QR button", async () => {
   const dom = buildDom({
     fetchImpl: async () =>
       jsonResponse(201, {
@@ -575,7 +576,7 @@ test("tab order follows input, submit button, result link, copy button, then QR 
         destination: "https://example.com",
       }),
   });
-  const { document, input, submitBtn, resultLink, copyBtn, qrBtn } = elements(dom);
+  const { document, luckyBtn, input, submitBtn, resultLink, copyBtn, qrBtn } = elements(dom);
 
   submitForm(dom, "https://example.com");
   await flush();
@@ -584,7 +585,7 @@ test("tab order follows input, submit button, result link, copy button, then QR 
     document.querySelectorAll("input, button, a[href]"),
   ).filter((el) => !el.hasAttribute("disabled") && !el.closest("[hidden]"));
 
-  assert.deepEqual(focusable, [input, submitBtn, resultLink, copyBtn, qrBtn]);
+  assert.deepEqual(focusable, [luckyBtn, input, submitBtn, resultLink, copyBtn, qrBtn]);
 });
 
 // --- QR code (optional, generated on demand) -------------------------------
