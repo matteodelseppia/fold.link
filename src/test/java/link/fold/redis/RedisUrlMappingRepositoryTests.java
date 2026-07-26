@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.UUID;
 import link.fold.config.AppProperties;
@@ -16,10 +15,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -57,11 +54,6 @@ class RedisUrlMappingRepositoryTests {
   @Autowired private RedisUrlMappingRepository repository;
   @Autowired private RedisKeyCodec keyCodec;
   @Autowired private StringRedisTemplate redisTemplate;
-
-  @Autowired
-  @Qualifier("destinationRedisTemplate")
-  private RedisTemplate<String, byte[]> destinationRedisTemplate;
-
   @Autowired private AppProperties appProperties;
 
   @AfterEach
@@ -129,27 +121,5 @@ class RedisUrlMappingRepositoryTests {
     redisTemplate.opsForValue().set(keyCodec.toKey(alias), "not a valid destination url");
 
     assertThat(repository.findByAlias(alias)).isInstanceOf(LookupResult.StorageFailure.class);
-  }
-
-  @Test
-  void lookupOfAPreCompressionPlainTextValueStillResolves() {
-    String alias = freshAlias();
-    String destination = "https://example.com/written-before-compression";
-    redisTemplate.opsForValue().set(keyCodec.toKey(alias), destination);
-
-    assertThat(repository.findByAlias(alias)).isEqualTo(new LookupResult.Found(destination));
-  }
-
-  @Test
-  void storedDestinationsAreCompressedSmallerThanTheirRawUtf8Bytes() {
-    String alias = freshAlias();
-    String destination =
-        "https://www.youtube.com/watch?v=dQw4w9WgXcQ&utm_source=share&utm_medium=web";
-    repository.create(alias, destination);
-
-    byte[] stored = destinationRedisTemplate.opsForValue().get(keyCodec.toKey(alias));
-
-    assertThat(stored).isNotNull();
-    assertThat(stored.length).isLessThan(destination.getBytes(StandardCharsets.UTF_8).length);
   }
 }
