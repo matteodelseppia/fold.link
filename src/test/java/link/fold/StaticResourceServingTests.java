@@ -49,7 +49,7 @@ class StaticResourceServingTests {
   void rootPageFooterNotesTheLinkExpiryWindow() throws Exception {
     HttpResponse<String> response = get("/");
 
-    assertThat(response.body()).containsIgnoringCase("expire in 3 days");
+    assertThat(response.body()).containsIgnoringCase("expire in 30 days");
   }
 
   @Test
