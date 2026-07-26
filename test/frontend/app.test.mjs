@@ -13,9 +13,41 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STATIC_DIR = path.resolve(__dirname, "../../src/main/resources/static");
 const HTML = fs.readFileSync(path.join(STATIC_DIR, "index.html"), "utf8");
 const APP_SCRIPT = fs.readFileSync(path.join(STATIC_DIR, "js/app.js"), "utf8");
+const CSS = fs.readFileSync(path.join(STATIC_DIR, "css/styles.css"), "utf8");
+const HTML_WITH_INLINE_CSS = HTML.replace(
+  '<link rel="stylesheet" href="/css/styles.css" />',
+  `<style>${CSS}</style>`,
+);
 
 function buildDom({ fetchImpl, clipboardImpl } = {}) {
   const dom = new JSDOM(HTML, { runScripts: "outside-only", url: "http://localhost/" });
+  const { window } = dom;
+
+  window.fetch =
+    fetchImpl ??
+    (async () => {
+      throw new Error("fetch was not expected to be called");
+    });
+
+  Object.defineProperty(window.navigator, "clipboard", {
+    value: clipboardImpl ?? { writeText: async () => {} },
+    configurable: true,
+  });
+
+  window.eval(APP_SCRIPT);
+  return dom;
+}
+
+// Same as buildDom, but with the real stylesheet inlined and layout enabled
+// so getComputedStyle reflects the actual cascade - buildDom's <link> is
+// never fetched by jsdom, so it can't catch CSS bugs (see the "really
+// display:none" tests below).
+function buildVisualDom({ fetchImpl, clipboardImpl } = {}) {
+  const dom = new JSDOM(HTML_WITH_INLINE_CSS, {
+    runScripts: "outside-only",
+    url: "http://localhost/",
+    pretendToBeVisual: true,
+  });
   const { window } = dom;
 
   window.fetch =
@@ -758,4 +790,72 @@ test("a stale QR load firing after a new submission is ignored", async () => {
   assert.equal(qrStatus.textContent, "");
   assert.equal(qrPanel.hidden, true);
   assert.equal(qrBtn.disabled, false);
+});
+
+// --- CSS actually renders the hidden state, not just the JS flag ----------
+//
+// Regression coverage for a real bug: `.qr-panel { display: flex; ... }`
+// was an author-stylesheet rule for `display`, and an author rule for a
+// property always wins over the browser's default `[hidden] { display:
+// none }` - regardless of selector specificity, because that default lives
+// in the lower-priority user-agent origin. `qrPanel.hidden` stayed `true`
+// throughout (the JS state was never wrong), but the panel - with no QR
+// image loaded yet - rendered visible immediately after shortening a link,
+// before the QR button was ever clicked. Every other test above asserts
+// only on `.hidden`/`.getAttribute("hidden")`, which is exactly why it
+// didn't catch this: it needs the real stylesheet and a real computed
+// style to fail the way the bug actually manifested.
+
+test("the QR panel is really display:none while hidden, not just flagged hidden", async () => {
+  const dom = buildVisualDom({
+    fetchImpl: async () =>
+      jsonResponse(201, {
+        alias: "abc12345",
+        shortUrl: "http://localhost/abc12345",
+        destination: "https://example.com",
+      }),
+  });
+  const { qrPanel } = elements(dom);
+
+  submitForm(dom, "https://example.com");
+  await flush();
+
+  assert.equal(qrPanel.hidden, true);
+  assert.equal(dom.window.getComputedStyle(qrPanel).display, "none");
+});
+
+test("the QR panel actually renders once a QR code has loaded", async () => {
+  const dom = buildVisualDom({
+    fetchImpl: async () =>
+      jsonResponse(201, {
+        alias: "abc12345",
+        shortUrl: "http://localhost/abc12345",
+        destination: "https://example.com",
+      }),
+  });
+  const { qrBtn, qrPanel } = elements(dom);
+
+  submitForm(dom, "https://example.com");
+  await flush();
+  qrBtn.dispatchEvent(new dom.window.Event("click", { bubbles: true }));
+  await waitForQrSrc(dom);
+  fireQrLoad(dom);
+
+  assert.equal(qrPanel.hidden, false);
+  assert.notEqual(dom.window.getComputedStyle(qrPanel).display, "none");
+});
+
+test("every element the app toggles via the hidden property is really display:none while hidden", () => {
+  const dom = buildVisualDom();
+  const { document } = elements(dom);
+
+  for (const id of ["result", "form-error", "qr-panel"]) {
+    const el = document.getElementById(id);
+    assert.equal(el.hidden, true, `expected #${id} to start hidden`);
+    assert.equal(
+      dom.window.getComputedStyle(el).display,
+      "none",
+      `expected #${id} to be display:none while hidden`,
+    );
+  }
 });
