@@ -233,7 +233,7 @@ test("submits the exact JSON contract to POST /api/v1/links", async () => {
   assert.deepEqual(JSON.parse(request.init.body), { url: "https://example.com/page" });
 });
 
-test("the submit button is disabled while a request is pending and re-enabled after", async () => {
+test("the submit button is disabled while pending and stays disabled for the same URL after success", async () => {
   let resolveFetch;
   const dom = buildDom({
     fetchImpl: () =>
@@ -257,8 +257,35 @@ test("the submit button is disabled while a request is pending and re-enabled af
 
   resolveFetch();
   await flush();
+  assert.equal(submitBtn.disabled, true);
+  assert.equal(submitBtn.querySelector(".btn-label").textContent, "Shortened");
+
+  const { input } = elements(dom);
+  input.value = "https://example.com/changed";
+  input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
   assert.equal(submitBtn.disabled, false);
   assert.equal(submitBtn.querySelector(".btn-label").textContent, "Shorten");
+});
+
+test("a repeated submission for the same successful URL does not send another request", async () => {
+  let calls = 0;
+  const dom = buildDom({
+    fetchImpl: async () => {
+      calls += 1;
+      return jsonResponse(201, {
+        alias: "abc12345",
+        shortUrl: "http://localhost/abc12345",
+        destination: "https://example.com",
+      });
+    },
+  });
+
+  submitForm(dom, "https://example.com");
+  await flush();
+  submitForm(dom, "https://example.com");
+  await flush();
+
+  assert.equal(calls, 1);
 });
 
 test("a second submission while one is pending does not send a second request", async () => {
@@ -598,7 +625,7 @@ test("tab order follows the form controls, then the footer source link", async (
     document.querySelectorAll("input, button, a[href]"),
   ).filter((el) => !el.hasAttribute("disabled") && !el.closest("[hidden]"));
 
-  assert.deepEqual(focusable, [luckyBtn, input, submitBtn, resultLink, copyBtn, qrBtn, sourceLink]);
+  assert.deepEqual(focusable, [luckyBtn, input, resultLink, copyBtn, qrBtn, sourceLink]);
 });
 
 // --- QR code (optional, generated on demand) -------------------------------
