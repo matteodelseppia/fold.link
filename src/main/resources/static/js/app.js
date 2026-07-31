@@ -31,6 +31,7 @@
   const FALLBACK_MESSAGE = "Something went wrong. Please try again.";
 
   let pending = false;
+  let lastSuccessfulUrl = null;
   let currentAlias = null;
   let qrRequested = false;
   let qrRequestGeneration = 0;
@@ -90,6 +91,7 @@
   }
 
   function hideResult() {
+    lastSuccessfulUrl = null;
     result.hidden = true;
     resultLink.textContent = "";
     resultLink.removeAttribute("href");
@@ -112,9 +114,11 @@
 
   function setPending(isPending) {
     pending = isPending;
-    submitBtn.disabled = isPending;
+    const alreadyShortened =
+      !isPending && lastSuccessfulUrl !== null && input.value.trim() === lastSuccessfulUrl;
+    submitBtn.disabled = isPending || alreadyShortened;
     submitBtn.classList.toggle("is-loading", isPending);
-    btnLabel.textContent = isPending ? "Shortening…" : "Shorten";
+    btnLabel.textContent = isPending ? "Shortening…" : alreadyShortened ? "Shortened" : "Shorten";
   }
 
   async function submit(url) {
@@ -137,6 +141,7 @@
       if (response.ok) {
         clearError();
         showResult(body);
+        lastSuccessfulUrl = url;
       } else {
         showError(messageForApiError(response.status, body));
         input.focus();
@@ -151,11 +156,12 @@
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (pending) {
+    const url = input.value.trim();
+    if (pending || (lastSuccessfulUrl !== null && url === lastSuccessfulUrl)) {
       return;
     }
 
-    const validationMessage = validate(input.value);
+    const validationMessage = validate(url);
     if (validationMessage) {
       hideResult();
       showError(validationMessage);
@@ -164,7 +170,14 @@
     }
 
     clearError();
-    submit(input.value.trim());
+    submit(url);
+  });
+
+  input.addEventListener("input", () => {
+    // A successful result is reusable while the destination stays unchanged.
+    // Changing the input makes a new shortening intent explicit and re-enables
+    // the button; the server remains authoritative for validation.
+    setPending(pending);
   });
 
   let copyResetTimer = null;
