@@ -155,6 +155,18 @@ test("the footer tells the user links expire in 30 days", () => {
   assert.match(footer.textContent, /expire in 30 days/i);
 });
 
+test("the footer invites users to leave a star on GitHub", () => {
+  const dom = buildDom();
+  const { document } = elements(dom);
+
+  const sourceLink = document.querySelector(".source-link");
+  assert.ok(sourceLink, "expected a source code link in the footer");
+  assert.match(sourceLink.textContent, /leave a star on github/i);
+  assert.equal(sourceLink.getAttribute("href"), "https://github.com/matteodelseppia/fold.link");
+  assert.equal(sourceLink.getAttribute("target"), "_blank");
+  assert.equal(sourceLink.getAttribute("rel"), "noopener noreferrer");
+});
+
 // --- MVP-085: client-side validation -------------------------------------
 
 test("blank input shows an error and never calls fetch", async () => {
@@ -567,7 +579,7 @@ test("client and server validation errors move focus to the input", async () => 
   assert.equal(document.activeElement, input);
 });
 
-test("tab order follows the lucky button, input, submit button, result link, copy button, then QR button", async () => {
+test("tab order follows the form controls, then the footer source link", async () => {
   const dom = buildDom({
     fetchImpl: async () =>
       jsonResponse(201, {
@@ -577,6 +589,7 @@ test("tab order follows the lucky button, input, submit button, result link, cop
       }),
   });
   const { document, luckyBtn, input, submitBtn, resultLink, copyBtn, qrBtn } = elements(dom);
+  const sourceLink = document.querySelector(".source-link");
 
   submitForm(dom, "https://example.com");
   await flush();
@@ -585,7 +598,7 @@ test("tab order follows the lucky button, input, submit button, result link, cop
     document.querySelectorAll("input, button, a[href]"),
   ).filter((el) => !el.hasAttribute("disabled") && !el.closest("[hidden]"));
 
-  assert.deepEqual(focusable, [luckyBtn, input, submitBtn, resultLink, copyBtn, qrBtn]);
+  assert.deepEqual(focusable, [luckyBtn, input, submitBtn, resultLink, copyBtn, qrBtn, sourceLink]);
 });
 
 // --- QR code (optional, generated on demand) -------------------------------
