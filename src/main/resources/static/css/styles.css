@@ -425,6 +425,22 @@ footer {
   font-size: 0.78rem;
 }
 
+footer p {
+  margin: 0;
+}
+
+.source-link {
+  display: inline-block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.source-link:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+
 @media (max-width: 20rem) {
   .result-row {
     flex-direction: column;
